@@ -1,11 +1,8 @@
 import json
-
 import numpy as np
 import requests
 from typing import List, Dict, Union, Any
 from datetime import datetime, timedelta
-# import datetime
-# import time
 import pandas as pd
 from itertools import combinations
 import networkx as nx
@@ -13,24 +10,8 @@ import itertools
 import heapq
 import copy
 
-
 token = f"191827beb804bd4d4025b75737717e18"
 
-# создать класс Route
-# оздать метод добавлнеия edge (перелет из города А в город В), который возвращает True|False
-# append сможет выполниться если дататайм добавляемого edge больше, чем дататайм предыдущего на n время (полет + пересадка)
-# долж
-# class MyList:
-#     def __init__(self):
-#         self.storage = []
-#     def __getitem__(self, index):
-#         return self.storage[index]
-#     def append(self, x):
-#         if x != "jopa":
-#             self.storage.append(x)
-#             return True
-#         else:
-#             return False
 class Covert_date_time:
     def covert_period_for_dates(self, start_date, end_date):
         '''
@@ -45,8 +26,9 @@ class Covert_date_time:
         return arr_period_dates
 
 class Route:
-    def __init__(self, start : str):
+    def __init__(self, start : str, finish : str):
         self.start = start
+        self.finish = finish
         self.storage = []
 
     def append(self, x, tranzit = 60) -> bool:
@@ -118,7 +100,7 @@ class Search():
     def __init__(self, token = "191827beb804bd4d4025b75737717e18"):
         self.token = token
 
-    def find_flights_fo_period(self, airports, start_date, end_date, s_period, e_period, home):
+    def find_flights_fo_period(self, airports, start_date, end_date, s_period, e_period, home, finish):
         '''To covert period for many separate dates.
            To call request.
            To save arr with dates of flights for all period.
@@ -131,7 +113,7 @@ class Search():
                                               return_at='',
                                               market="ru", limit=1000, sorting="price")
                 flights[data] = flights_on_data
-        elif airports[1] == home:
+        elif airports[1] == finish:
             arr_period_dates = Covert_date_time().covert_period_for_dates(e_period[0], e_period[1])
             for idx, data in enumerate(arr_period_dates):
                 flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
@@ -144,7 +126,7 @@ class Search():
                 flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data, return_at='',
                                     market="ru", limit=1000, sorting="price")
                 flights[data] = flights_on_data
-        return flights, arr_period_dates
+        return flights
         raise NotImplementedError
 
     def time_for_transfer(self, *args, **kwargs):
@@ -157,11 +139,11 @@ class Search():
         return time_or_limitation
         raise NotImplementedError
 
-    def find_paths_of_length(self, graph, node, path_len):
+    def find_paths_of_length(self, graph, node, path_len, finish):
         paths = []
         visited = {node: True}
 
-        def dfs(G, airport: Any, path: Route):
+        def dfs_circle(G, airport: Any, path: Route):
             for neighbor in graph.neighbors(airport):
 
                 flights = [] #TODO: забрать edges между airport и neighbor из графа
@@ -177,13 +159,38 @@ class Search():
                             paths.append(path_copy)
                         elif neighbor not in visited:
                             visited[neighbor] = True
-                            dfs(G, neighbor, path_copy)
+                            dfs_circle(G, neighbor, path_copy)
+                            visited.pop(neighbor)
+        def dfs_not_circle(G, airport, finish, path: Route):
+            for neighbor in graph.neighbors(airport):
+                if len(path) != path_len - 3 and neighbor == finish:
+                    continue
+                flights = [] #TODO: забрать edges между airport и neighbor из графа
+                # flights = G.get_edge_data(airport, neighbor, data=True)
+                for u, v, d in G.edges(data=True):
+                    if u == airport and v == neighbor:
+                        flights.append([airport, neighbor, d])
+                for flight in flights:
+                    path_copy = copy.deepcopy(path)
+                    success = path_copy.append(flight)
+                    if success:
+                        if len(path_copy) == path_len - 2 and path_copy.finish == neighbor:
+                            paths.append(path_copy)
+                        elif neighbor not in visited:
+                            visited[neighbor] = True
+                            dfs_not_circle(G, neighbor, finish, path_copy)
                             visited.pop(neighbor)
 
-        dfs(graph, node, Route(node))
+            return paths
+
+        r = Route(node, finish)
+        if r.start == r.finish:
+            dfs_circle(graph, node, r)
+        elif r.start != r.finish:
+            dfs_not_circle(graph, node, finish, r)
         return paths
 
-    def compute_all_routes(self, dict_r, combinations_airports, arr_period_date, home = 'MOW'):
+    def compute_all_routes(self, dict_r, combinations_airports, arr_period_date, home, finish):
         '''
         Input: dict with all possible flights between all selected airports.
         To compute all possible routes from all flights.
@@ -217,11 +224,9 @@ class Search():
                 else:
                     for data_flight in time_data[arr_period_date[j]]:
                         G.add_edge(i[0], i[1], weight=data_flight[0], time=data_flight[1], time_in_sky=data_flight[2], airlines=data_flight[4], link=data_flight[5])
-        start = home
-        all_routes = self.find_paths_of_length(G, start, path_len=(len(airports)+1))
-        arr_with_routes = []
-        for idx, route in enumerate(all_routes):
-            arr_with_routes.append(route.storage)
+        all_routes = self.find_paths_of_length(G, home, path_len=(len(airports)+1), finish = finish)
+
+
 
         return G, all_routes
         raise NotImplementedError
@@ -252,7 +257,7 @@ class Search():
             new_arr_t.append(routes[i])
         return new_arr_t, sorted_time
 
-    def collects_all_flights_for_all_routes(self, start_date, end_date, airports, start_period, end_period, home):
+    def collects_all_flights_for_all_routes(self, start_date, end_date, airports, start_period, end_period, home, finish):
         '''
         To call find_flights_fo_period and
         to append all arrays with flights on different routes
@@ -280,9 +285,9 @@ class Search():
         # вызвать функцию со всеми возможными парами аэропортов
         dict = {}
         for idx, pair_air in enumerate(combinations_airports):
-            req_for_period, arr_period_dates = self.find_flights_fo_period(pair_air, start_date, end_date, start_period, end_period, home)
+            req_for_period = self.find_flights_fo_period(pair_air, start_date, end_date, start_period, end_period, home, finish)
             dict[pair_air] = req_for_period
-        print(dict)
+
         arr_period_dates = Covert_date_time().covert_period_for_dates(start_date, end_date)
         return dict, combinations_airports, arr_period_dates
         raise NotImplementedError
@@ -350,10 +355,10 @@ class Search():
 
 ser = Search()
 
-dict, airport, arr_period_dates = ser.collects_all_flights_for_all_routes(start_date = '2023.06.20', end_date = '2023.07.20', airports = ['LED', 'OVB', 'MOW'], start_period = ['2023.06.20', '2023.06.25'], end_period = ['2023.07.15', '2023.07.20'], home = 'LED')
-G, all_routes = ser.compute_all_routes(dict, airport, arr_period_dates, home = 'LED')
+dict, airport, arr_period_dates = ser.collects_all_flights_for_all_routes(start_date = '2023.06.20', end_date = '2023.06.23', airports = ['LED', 'OVB', 'MOW', 'TOF'], start_period = ['2023.06.20', '2023.06.23'], end_period = ['2023.06.20', '2023.06.23'], home = 'LED', finish ='OVB')
+G, all_routes = ser.compute_all_routes(dict, airport, arr_period_dates, home = 'LED', finish ='OVB')
 best_routes, price = ser.find_cheapest_route(all_routes)
-best_routes, time = ser.find_short_in_time_route(all_routes)
+best_routes, sorted_time = ser.find_short_in_time_route(all_routes)
 print(best_routes, price)
 
 
@@ -364,5 +369,6 @@ print(best_routes, price)
 # задавать город старта! Сейчас не реализовано, костыль.
 # find_short_in_time_route - допиши (готово)
 # сделать проверку на существование аэропорта
+# path len!
 
 
