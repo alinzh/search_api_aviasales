@@ -1,19 +1,19 @@
-import json
-import numpy as np
-import requests
-from typing import List, Dict, Union, Any
-from datetime import datetime, timedelta
-import pandas as pd
-from itertools import combinations
-import networkx as nx
-import itertools
-import heapq
 import copy
+import json
+from datetime import datetime, timedelta
+from itertools import combinations
+from typing import List, Dict, Union, Any
+
+import networkx as nx
+import numpy as np
+import pandas as pd
+import requests
 
 token = f"191827beb804bd4d4025b75737717e18"
 
-class Covert_date_time:
-    def covert_period_for_dates(self, start_date, end_date):
+
+class ConvertDateTime:
+    def convert_period_for_dates(self, start_date, end_date):
         '''
         start_date is date in format: %Y-%m-%d
         Covert period in many dates.
@@ -25,24 +25,43 @@ class Covert_date_time:
         ).strftime('%Y-%m-%d').tolist()
         return arr_period_dates
 
+
 class Route:
-    def __init__(self, start : str, finish : str):
+    def __init__(self, start: str, finish: str, tranzit=None, hate_airl=None):
         self.start = start
         self.finish = finish
+        self.tranzit = tranzit
+        self.hate_airl = hate_airl
         self.storage = []
 
-    def append(self, x, tranzit = 60) -> bool:
+    def len_tranzit(self, city: str):
+        '''
+
+        :param tranzit: list with tenzors in format arrival_city+time_tranzit
+        :return:
+        '''
+        if self.tranzit != None:
+            for pair in self.tranzit:
+                if pair[0] == city:
+                    return pair[1]
+        return 60
+
+    def append(self, x, tranzit=60) -> bool:
         # Проверить даейттайм добавлемоего edge (он же х тут), чтобы он был больше, чем у storage[-1]. Если ок - добавить х в self.storeage и вернуть True.
         if len(self.storage) >= 1:
             dict_atrr_2 = x[2]
+            if len(self.hate_airl) > 0:
+                if dict_atrr_2['airlines'] == [i for i in self.hate_airl]:
+                    return False
             second_date = dict_atrr_2['time']
             date_format = '%Y-%m-%dT%H:%M:%S%z'
-            date_2 = datetime.strptime(second_date, date_format) # дата вылета рейса x
+            date_2 = datetime.strptime(second_date, date_format)  # дата вылета рейса x
             y = self.storage[-1]
             dict_atrr_1 = y[2]
             first_data = dict_atrr_1['time']
-            data_1 = datetime.strptime(first_data, date_format) # дата вылета рейса storage[-1]
-            flight_duration = dict_atrr_1['time_in_sky'] # время полета рейса storage[-1], т.е. У
+            data_1 = datetime.strptime(first_data, date_format)  # дата вылета рейса storage[-1]
+            flight_duration = dict_atrr_1['time_in_sky']  # время полета рейса storage[-1], т.е. У
+            tranzit = self.len_tranzit(x[0])
             if date_2 > data_1:
                 delta = date_2 - (data_1 + timedelta(minutes=flight_duration) + timedelta(minutes=tranzit))
                 if delta >= timedelta(0):
@@ -52,13 +71,19 @@ class Route:
                     return False
             else:
                 return False
+        elif len(self.hate_airl) > 0:
+            dict_atrr_2 = x[2]
+            if dict_atrr_2['airlines'] == [i for i in self.hate_airl]:
+                return False
+            else:
+                self.storage.append(x)
+                return True
         else:
             self.storage.append(x)
             return True
-        raise NotImplementedError
 
     def period_for_first_departure(self, x, start_time, end_time):
-        necessary_date = Covert_date_time().covert_period_for_dates(start_date, end_date)
+        necessary_date = ConvertDateTime().convert_period_for_dates(start_date, end_date)
         dict_atrr_2 = x[2]
         date_of_flight = dict_atrr_2['time']
         date_format = '%Y-%m-%dT%H:%M:%S%z'
@@ -94,10 +119,9 @@ class Route:
         return duration
 
 
-
 class Search():
 
-    def __init__(self, token = "191827beb804bd4d4025b75737717e18"):
+    def __init__(self, token="191827beb804bd4d4025b75737717e18"):
         self.token = token
 
     def find_flights_fo_period(self, airports, start_date, end_date, s_period, e_period, home, finish):
@@ -105,29 +129,32 @@ class Search():
            To call request.
            To save arr with dates of flights for all period.
         '''
+        current_time = datetime.now()
         flights = {}
         if airports[0] == home:
-            arr_period_dates = Covert_date_time().covert_period_for_dates(s_period[0], s_period[1])
+            arr_period_dates = ConvertDateTime().convert_period_for_dates(s_period[0], s_period[1])
             for idx, data in enumerate(arr_period_dates):
                 flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
                                               return_at='',
                                               market="ru", limit=1000, sorting="price")
                 flights[data] = flights_on_data
         elif airports[1] == finish:
-            arr_period_dates = Covert_date_time().covert_period_for_dates(e_period[0], e_period[1])
+            arr_period_dates = ConvertDateTime().convert_period_for_dates(e_period[0], e_period[1])
             for idx, data in enumerate(arr_period_dates):
                 flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
-                                          return_at='',
-                                          market="ru", limit=1000, sorting="price")
+                                              return_at='',
+                                              market="ru", limit=1000, sorting="price")
                 flights[data] = flights_on_data
         else:
-            arr_period_dates = Covert_date_time().covert_period_for_dates(start_date, end_date)
+            arr_period_dates = ConvertDateTime().convert_period_for_dates(start_date, end_date)
             for idx, data in enumerate(arr_period_dates):
-                flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data, return_at='',
-                                    market="ru", limit=1000, sorting="price")
+                flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
+                                              return_at='',
+                                              market="ru", limit=1000, sorting="price")
                 flights[data] = flights_on_data
+        delta_time = current_time - datetime.now()
+        print(f'Doing @find_flights_fo_period, request {delta_time}')
         return flights
-        raise NotImplementedError
 
     def time_for_transfer(self, *args, **kwargs):
         '''
@@ -139,14 +166,14 @@ class Search():
         return time_or_limitation
         raise NotImplementedError
 
-    def find_paths_of_length(self, graph, node, path_len, finish):
+    def find_paths_of_length(self, graph, node, path_len, finish, tranzit, hate_airl):
         paths = []
         visited = {node: True}
-
+        current_time = datetime.combine(datetime.min, datetime.now().time())
         def dfs_circle(G, airport: Any, path: Route):
             for neighbor in graph.neighbors(airport):
 
-                flights = [] #TODO: забрать edges между airport и neighbor из графа
+                flights = []  # TODO: забрать edges между airport и neighbor из графа
                 # flights = G.get_edge_data(airport, neighbor, data=True)
                 for u, v, d in G.edges(data=True):
                     if u == airport and v == neighbor:
@@ -161,11 +188,15 @@ class Search():
                             visited[neighbor] = True
                             dfs_circle(G, neighbor, path_copy)
                             visited.pop(neighbor)
+
+        delta_time = current_time - datetime.combine(datetime.min, datetime.now().time())
+        print(f'dfs {delta_time}')
+
         def dfs_not_circle(G, airport, finish, path: Route):
             for neighbor in graph.neighbors(airport):
                 if len(path) != path_len - 3 and neighbor == finish:
                     continue
-                flights = [] #TODO: забрать edges между airport и neighbor из графа
+                flights = []  # TODO: забрать edges между airport и neighbor из графа
                 # flights = G.get_edge_data(airport, neighbor, data=True)
                 for u, v, d in G.edges(data=True):
                     if u == airport and v == neighbor:
@@ -183,19 +214,21 @@ class Search():
 
             return paths
 
-        r = Route(node, finish)
+        r = Route(node, finish, tranzit, hate_airl)
         if r.start == r.finish:
             dfs_circle(graph, node, r)
         elif r.start != r.finish:
             dfs_not_circle(graph, node, finish, r)
         return paths
 
-    def compute_all_routes(self, dict_r, combinations_airports, arr_period_date, home, finish):
+    def compute_all_routes(self, dict_r, combinations_airports, arr_period_date, home, finish, tranzit, hate_airl):
         '''
         Input: dict with all possible flights between all selected airports.
         To compute all possible routes from all flights.
         Return: Graf and array with routes.
         '''
+        current_time = datetime.combine(datetime.min, datetime.now().time())
+        print(f'Start @compute_all_routes at {current_time}')
         G = nx.MultiDiGraph()
         dict_routes = dict_r.copy()
         airports = []
@@ -220,14 +253,16 @@ class Search():
                             G.add_edge(i[0], i[1], weight=data_flight[0], time=data_flight[1],
                                        time_in_sky=data_flight[2], airlines=data_flight[4], link=data_flight[5])
                 elif time_data[arr_period_date[j]] == None:
-                        continue
+                    continue
                 else:
                     for data_flight in time_data[arr_period_date[j]]:
-                        G.add_edge(i[0], i[1], weight=data_flight[0], time=data_flight[1], time_in_sky=data_flight[2], airlines=data_flight[4], link=data_flight[5])
-        all_routes = self.find_paths_of_length(G, home, path_len=(len(airports)+1), finish = finish)
+                        G.add_edge(i[0], i[1], weight=data_flight[0], time=data_flight[1], time_in_sky=data_flight[2],
+                                   airlines=data_flight[4], link=data_flight[5])
+        all_routes = self.find_paths_of_length(G, home, path_len=(len(airports) + 1), finish=finish, tranzit=tranzit,
+                                               hate_airl=hate_airl)
 
-
-
+        delta_time = current_time - datetime.combine(datetime.min, datetime.now().time())
+        print(f'Doing @compute_all_routes for {delta_time}')
         return G, all_routes
         raise NotImplementedError
 
@@ -239,7 +274,7 @@ class Search():
         price_for_routes = [route.total_price() for route in routes]
         sorted_indexes = np.argsort(price_for_routes)
         sorted_price = np.sort(price_for_routes)
-        new_arr_r = [] #список экзмпляров класса route, отсортированный по возрастанию стоимости маршрута
+        new_arr_r = []  # список экзмпляров класса route, отсортированный по возрастанию стоимости маршрута
         for i in sorted_indexes:
             new_arr_r.append(routes[i])
         return new_arr_r, sorted_price
@@ -252,12 +287,13 @@ class Search():
         time_for_routes = [route.total_time() for route in routes]
         sorted_indexes = np.argsort(time_for_routes)
         sorted_time = np.sort(time_for_routes)
-        new_arr_t = [] #список экзмпляров класса route, отсортированный по возрастанию времени на рейсы
+        new_arr_t = []  # список экзмпляров класса route, отсортированный по возрастанию времени на рейсы
         for i in sorted_indexes:
             new_arr_t.append(routes[i])
         return new_arr_t, sorted_time
 
-    def collects_all_flights_for_all_routes(self, start_date, end_date, airports, start_period, end_period, home, finish):
+    def collects_all_flights_for_all_routes(self, start_date, end_date, airports, start_period, end_period, home,
+                                            finish):
         '''
         To call find_flights_fo_period and
         to append all arrays with flights on different routes
@@ -285,17 +321,19 @@ class Search():
         # вызвать функцию со всеми возможными парами аэропортов
         dict = {}
         for idx, pair_air in enumerate(combinations_airports):
-            req_for_period = self.find_flights_fo_period(pair_air, start_date, end_date, start_period, end_period, home, finish)
+            req_for_period = self.find_flights_fo_period(pair_air, start_date, end_date, start_period, end_period, home,
+                                                         finish)
             dict[pair_air] = req_for_period
 
-        arr_period_dates = Covert_date_time().covert_period_for_dates(start_date, end_date)
+        arr_period_dates = ConvertDateTime().convert_period_for_dates(start_date, end_date)
         return dict, combinations_airports, arr_period_dates
         raise NotImplementedError
 
     def patricular_url_for_req(self, *args, **kwargs):
         return self.url_for_req(feature="v3/prices_for_dates?", *args, **kwargs)
 
-    def  url_for_req(self, origin, destination, departure_at, feature, market="ru", limit=1000, sorting="price", return_at =''):
+    def url_for_req(self, origin, destination, departure_at, feature, market="ru", limit=1000, sorting="price",
+                    return_at=''):
         url = f'https://api.travelpayouts.com/aviasales/{feature}' \
               f'origin={origin}' \
               f'&destination={destination}' \
@@ -305,7 +343,7 @@ class Search():
               f'&limit={limit}&token={self.token}'
         return url
 
-    def  request(self, url: str) -> Dict[str, Union[bool, List[Dict[str, Any]], str]]:
+    def request(self, url: str) -> Dict[str, Union[bool, List[Dict[str, Any]], str]]:
         """THis function makes a request."""
         res = requests.get(url)
         json_data = res.text
@@ -353,22 +391,45 @@ class Search():
             best_price = self.best_price(py_data['data'])
             return best_price
 
+
 ser = Search()
+start_time = datetime.now()
+dict, airport, arr_period_dates = ser.collects_all_flights_for_all_routes(start_date='2023.06.20',
+                                                                          end_date='2023.08.29',
+                                                                          airports=['LED', 'BKK', 'DPS', 'DXB'],
+                                                                          start_period=['2023.06.20', '2023.08.20'],
+                                                                          end_period=['2023.08.28', '2023.08.29'],
+                                                                          home='LED', finish='DPS')
+end_time = datetime.now()
+delta_time = end_time - start_time
+print(f"Requests and collects all routes {delta_time}")
+start_time = datetime.now()
+G, all_routes = ser.compute_all_routes(dict, airport, arr_period_dates, home='LED', finish='DPS',
+                                       tranzit=[('BKK', 43200), ('DXB', 43200)], hate_airl=['DP'])
+end_time = datetime.now()
+delta_time = end_time - start_time
+print(f"DFS {delta_time}")
+start_time = datetime.now()
 
-dict, airport, arr_period_dates = ser.collects_all_flights_for_all_routes(start_date = '2023.06.20', end_date = '2023.06.23', airports = ['LED', 'OVB', 'MOW', 'TOF'], start_period = ['2023.06.20', '2023.06.23'], end_period = ['2023.06.20', '2023.06.23'], home = 'LED', finish ='OVB')
-G, all_routes = ser.compute_all_routes(dict, airport, arr_period_dates, home = 'LED', finish ='OVB')
 best_routes, price = ser.find_cheapest_route(all_routes)
+end_time = datetime.now()
+delta_time = end_time - start_time
+print(f"best_routes 1 {delta_time}")
+start_time = datetime.now()
+
 best_routes, sorted_time = ser.find_short_in_time_route(all_routes)
-print(best_routes, price)
+end_time = datetime.now()
+delta_time = end_time - start_time
+print(f"best_routes 2 {delta_time}")
 
 
-# TODO: возможность фиксировать дату вылета(диапазон) и дату прилета (интерфейс),
-# возможность задавать для пересадки доп. время, например - больше суток или от m до k суток,
-# возможность сортировки по времени в полете,
+# возможность фиксировать дату вылета(диапазон) и дату прилета (интерфейс) (готово),
+# возможность задавать для пересадки доп. время, например - больше суток или от m до k суток (сделала пересадку от n времени)
+# возможность сортировки по времени в полете(готово),
 # возможность исключать конкретные авиакомпании, напрмиер - Победу,
 # задавать город старта! Сейчас не реализовано, костыль.
 # find_short_in_time_route - допиши (готово)
 # сделать проверку на существование аэропорта
 # path len!
 
-
+# транзит - город+минимальное время прибывания в нем(сейчас в минутах)
