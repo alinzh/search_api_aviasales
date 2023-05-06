@@ -25,7 +25,35 @@ class ConvertDateTime:
         ).strftime('%Y-%m-%d').tolist()
         return arr_period_dates
 
+    def format_big_to_small(self, date_x):
+        '''
+        convert format "%Y-%m-%dT%H:%M:%S%z" to "%Y-%m-%d"
+        :param date:
+        :return: date in format "%Y-%m-%d"
+        '''
+        source_format = "%Y-%m-%dT%H:%M:%S%z"
+        dt = datetime.strptime(date_x, source_format)
+        result_date = dt.strftime("%Y-%m-%d")
+        return result_date
 
+    def convert_day_to_month(self, date_x):
+        '''
+        convert format "%Y-%m-%d" to "%Y-%m"
+        :return: date in "%Y-%m"
+        '''
+        source_format = "%Y-%m-%d"
+        new_dates = []
+        for i in range(len(date_x)):
+            dt = datetime.strptime(date_x[i], source_format)
+            result_date = dt.strftime("%Y-%m")
+            new_dates.append(result_date)
+        return new_dates
+
+    def period_for_month(self, start_date, end_date):
+        a_lot_dates = self.convert_period_for_dates(start_date, end_date)
+        format_years_month = self.convert_day_to_month(a_lot_dates)
+        months = list(set(format_years_month))
+        return months
 class Route:
     def __init__(self, start: str, finish: str, tranzit=None, hate_airl=None):
         self.start = start
@@ -129,47 +157,69 @@ class Search():
            To call request.
            To save arr with dates of flights for all period.
         '''
-        current_time = datetime.now()
-        flights = {}
+
+        # flights = {}
+        # if airports[0] == home:
+        #     arr_period_dates = ConvertDateTime().convert_period_for_dates(s_period[0], s_period[1])
+        #     for idx, data in enumerate(arr_period_dates):
+        #         flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
+        #                                       return_at='',
+        #                                       market="ru", limit=1000, sorting="price")
+        #         flights[data] = flights_on_data
+        # elif airports[1] == finish:
+        #     arr_period_dates = ConvertDateTime().convert_period_for_dates(e_period[0], e_period[1])
+        #     for idx, data in enumerate(arr_period_dates):
+        #         flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
+        #                                       return_at='',
+        #                                       market="ru", limit=1000, sorting="price")
+        #         flights[data] = flights_on_data
+        # else:
+        #     arr_period_dates = ConvertDateTime().convert_period_for_dates(start_date, end_date)
+        #     for idx, data in enumerate(arr_period_dates):
+        #         flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
+        #                                       return_at='',
+        #                                       market="ru", limit=1000, sorting="price")
+        #         flights[data] = flights_on_data
+        cv = ConvertDateTime()
+        different_month = cv.period_for_month(start_date, end_date)
+        flights_on_data = []
+        for i in range(len(different_month)):
+            data = (different_month)[i]
+            flights = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
+                                              return_at='',
+                                              market="ru", limit=1000, sorting="price")
+            if i == 0:
+                flights_on_data = flights
+            else:
+                flights_on_data.update(flights)
         if airports[0] == home:
-            arr_period_dates = ConvertDateTime().convert_period_for_dates(s_period[0], s_period[1])
-            for idx, data in enumerate(arr_period_dates):
-                flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
-                                              return_at='',
-                                              market="ru", limit=1000, sorting="price")
-                flights[data] = flights_on_data
+            start_period = s_period[0]
+            end_period = s_period[1]
         elif airports[1] == finish:
-            arr_period_dates = ConvertDateTime().convert_period_for_dates(e_period[0], e_period[1])
-            for idx, data in enumerate(arr_period_dates):
-                flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
-                                              return_at='',
-                                              market="ru", limit=1000, sorting="price")
-                flights[data] = flights_on_data
+            start_period = e_period[0]
+            end_period = e_period[1]
         else:
-            arr_period_dates = ConvertDateTime().convert_period_for_dates(start_date, end_date)
-            for idx, data in enumerate(arr_period_dates):
-                flights_on_data = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
-                                              return_at='',
-                                              market="ru", limit=1000, sorting="price")
-                flights[data] = flights_on_data
-        delta_time = current_time - datetime.now()
-        print(f'Doing @find_flights_fo_period, request {delta_time}')
-        return flights
+            start_period = start_date
+            end_period = end_date
+        # ниже отсекаем ненужные даты: смотрим на ограничения по вылету из 1-ого аэропорта и последнего и,
+        # по периоду указанному при запросе (до этого кидали запросы на сервер на месяца)
+        period_in_dates = cv.convert_period_for_dates(start_period, end_date)
+        necessary_flight = {}
+        for idx, data in enumerate(period_in_dates):
+            if data not in flights_on_data:
+                necessary_flight[data] = None
+            else:
+                necessary_flight[data] = flights_on_data[data]
 
-    def time_for_transfer(self, *args, **kwargs):
-        '''
-        To select period between arrival and next flight
-        To do: default value and selected time
-        :return: ?
+        #TODO: take stock s_period, e_period, if start == home or end == finish
 
-        '''
-        return time_or_limitation
-        raise NotImplementedError
+        return necessary_flight
+    def neccesary_flight_for_period(self):
+        NotImplementedError
 
     def find_paths_of_length(self, graph, node, path_len, finish, tranzit, hate_airl):
         paths = []
         visited = {node: True}
-        current_time = datetime.combine(datetime.min, datetime.now().time())
         def dfs_circle(G, airport: Any, path: Route):
             for neighbor in graph.neighbors(airport):
 
@@ -189,8 +239,6 @@ class Search():
                             dfs_circle(G, neighbor, path_copy)
                             visited.pop(neighbor)
 
-        delta_time = current_time - datetime.combine(datetime.min, datetime.now().time())
-        print(f'dfs {delta_time}')
 
         def dfs_not_circle(G, airport, finish, path: Route):
             for neighbor in graph.neighbors(airport):
@@ -227,20 +275,16 @@ class Search():
         To compute all possible routes from all flights.
         Return: Graf and array with routes.
         '''
-        current_time = datetime.combine(datetime.min, datetime.now().time())
-        print(f'Start @compute_all_routes at {current_time}')
+
         G = nx.MultiDiGraph()
-        dict_routes = dict_r.copy()
         airports = []
         for idx, i in enumerate(combinations_airports):
             airports.append(i[0])
             airports.append(i[1])
         airports = set(airports)
         G.add_nodes_from(airports)
-        edges = []
         for idx, i in enumerate(combinations_airports):
-            time_data = dict_routes[i]
-            key = 1
+            time_data = dict_r[i]
             for j in range(len(arr_period_date)):
                 if len(time_data) < len(arr_period_date):
                     keys_list = list(time_data.keys())
@@ -249,20 +293,18 @@ class Search():
                     elif time_data[arr_period_date[j]] == None:
                         continue
                     else:
-                        for data_flight in time_data[arr_period_date[j]]:
-                            G.add_edge(i[0], i[1], weight=data_flight[0], time=data_flight[1],
-                                       time_in_sky=data_flight[2], airlines=data_flight[4], link=data_flight[5])
+                         data_for_one_flight = time_data[arr_period_date[j]]
+                         G.add_edge(i[0], i[1], weight=data_for_one_flight['price'],
+                                       time=data_for_one_flight['departure_at'], time_in_sky=data_for_one_flight['duration'],airlines = data_for_one_flight['airline'], link = data_for_one_flight['link'])
                 elif time_data[arr_period_date[j]] == None:
                     continue
                 else:
-                    for data_flight in time_data[arr_period_date[j]]:
-                        G.add_edge(i[0], i[1], weight=data_flight[0], time=data_flight[1], time_in_sky=data_flight[2],
-                                   airlines=data_flight[4], link=data_flight[5])
+                     data_for_one_flight = time_data[arr_period_date[j]]
+                     G.add_edge(i[0], i[1], weight=data_for_one_flight['price'], time=data_for_one_flight['departure_at'], time_in_sky=data_for_one_flight['duration'],
+                                   airlines=data_for_one_flight['airline'], link=data_for_one_flight['link'])
         all_routes = self.find_paths_of_length(G, home, path_len=(len(airports) + 1), finish=finish, tranzit=tranzit,
                                                hate_airl=hate_airl)
 
-        delta_time = current_time - datetime.combine(datetime.min, datetime.now().time())
-        print(f'Doing @compute_all_routes for {delta_time}')
         return G, all_routes
         raise NotImplementedError
 
@@ -345,42 +387,59 @@ class Search():
 
     def request(self, url: str) -> Dict[str, Union[bool, List[Dict[str, Any]], str]]:
         """THis function makes a request."""
-        res = requests.get(url)
+        headers = {'Accept-Encoding': 'gzip, deflate'}
+        res = requests.get(url, headers=headers)
         json_data = res.text
         py_data = json.loads(json_data)
         return py_data
 
-    def best_price(self, py_data):
+    def flight_for_month(self, py_data):
         prices = []
         d_time = []
         duration = []
         airline = []
         link = []
+        transfers = []
         for idx in py_data:
             prices.append(idx["price"])
             d_time.append(idx["departure_at"])
             duration.append(idx["duration"])
             airline.append(idx["airline"])
             link.append(idx["link"])
-        best_offers = []
+            transfers.append(idx['transfers'])
 
-        data = list(zip(prices, d_time, duration, airline, link))
-        # Сортировка списка кортежей по первому элементу (цене)
-        sorted_data = sorted(data, key=lambda x: x[0])
-        # Распаковка отсортированного списка кортежей обратно в отдельные списки
-        sorted_prices, sorted_d_time, sorted_duration, sorted_airline, sorted_link = zip(*sorted_data)
+        flight_for_month = {}
+        for i in range(len(prices)):
+            flight = {}
+            flight['price'] = prices[i]
+            flight['departure_at'] = d_time[i]
+            flight['duration'] = duration[i]
+            flight['airline'] = airline[i]
+            flight['link'] = link[i]
+            flight['transfers'] = transfers[i]
+            date_flight = ConvertDateTime().format_big_to_small(d_time[i])
+            flight_for_month[str(date_flight)] = flight
+        return flight_for_month
 
-        for i in range(len(sorted_prices)):
-            offer = []
-            offer.append(sorted_prices[i])
-            offer.append(sorted_d_time[i])
-            offer.append(sorted_duration[i])
-            offer.append(sorted_prices[i])
-            offer.append(sorted_airline[i])
-            offer.append(f'https://www.aviasales.ru{sorted_link[i]}')
-            best_offers.append(offer)
-
-        return best_offers
+        # best_offers = []
+        #
+        # data = list(zip(prices, d_time, duration, airline, link))
+        # # Сортировка списка кортежей по первому элементу (цене)
+        # sorted_data = sorted(data, key=lambda x: x[0])
+        # # Распаковка отсортированного списка кортежей обратно в отдельные списки
+        # sorted_prices, sorted_d_time, sorted_duration, sorted_airline, sorted_link = zip(*sorted_data)
+        #
+        # for i in range(len(sorted_prices)):
+        #     offer = []
+        #     offer.append(sorted_prices[i])
+        #     offer.append(sorted_d_time[i])
+        #     offer.append(sorted_duration[i])
+        #     offer.append(sorted_prices[i])
+        #     offer.append(sorted_airline[i])
+        #     offer.append(f'https://www.aviasales.ru{sorted_link[i]}')
+        #     best_offers.append(offer)
+        #
+        # return best_offers
 
     def offers(self, **kwargs):
         url = self.patricular_url_for_req(**kwargs)
@@ -388,39 +447,32 @@ class Search():
         if py_data['data'] == []:
             return
         else:
-            best_price = self.best_price(py_data['data'])
-            return best_price
+            flight_for_month = self.flight_for_month(py_data['data'])
+            return flight_for_month
 
 
 ser = Search()
 start_time = datetime.now()
 dict, airport, arr_period_dates = ser.collects_all_flights_for_all_routes(start_date='2023.06.20',
-                                                                          end_date='2023.08.29',
-                                                                          airports=['LED', 'BKK', 'DPS', 'DXB'],
-                                                                          start_period=['2023.06.20', '2023.08.20'],
-                                                                          end_period=['2023.08.28', '2023.08.29'],
-                                                                          home='LED', finish='DPS')
+                                                                          end_date='2023.07.20',
+                                                                          airports=['LED', 'MOW', 'TOF'],
+                                                                          start_period=['2023.06.20', '2023.06.30'],
+                                                                          end_period=['2023.07.10', '2023.07.20'],
+                                                                          home='LED', finish='LED')
 end_time = datetime.now()
 delta_time = end_time - start_time
 print(f"Requests and collects all routes {delta_time}")
 start_time = datetime.now()
-G, all_routes = ser.compute_all_routes(dict, airport, arr_period_dates, home='LED', finish='DPS',
-                                       tranzit=[('BKK', 43200), ('DXB', 43200)], hate_airl=['DP'])
+G, all_routes = ser.compute_all_routes(dict, airport, arr_period_dates, home='LED', finish='LED',
+                                       tranzit=[('TOF', 30160)], hate_airl=['5N'])
 end_time = datetime.now()
 delta_time = end_time - start_time
 print(f"DFS {delta_time}")
 start_time = datetime.now()
 
 best_routes, price = ser.find_cheapest_route(all_routes)
-end_time = datetime.now()
-delta_time = end_time - start_time
-print(f"best_routes 1 {delta_time}")
-start_time = datetime.now()
-
 best_routes, sorted_time = ser.find_short_in_time_route(all_routes)
-end_time = datetime.now()
-delta_time = end_time - start_time
-print(f"best_routes 2 {delta_time}")
+
 
 
 # возможность фиксировать дату вылета(диапазон) и дату прилета (интерфейс) (готово),
