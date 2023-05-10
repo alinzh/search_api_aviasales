@@ -7,6 +7,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import requests
+import re
 
 token = f"191827beb804bd4d4025b75737717e18"
 
@@ -414,31 +415,177 @@ class Search():
         else:
             flight_for_month = self.flight_for_month(py_data['data'])
             return flight_for_month
+    def covert_city_to_air(self, citys):
+        with open(r"C:\Users\Пользователь\PycharmProjects\pythonProject_avia\city2code.json", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(citys, str):
+                airports = data[citys]
+                return airports
+            airports = [data[key] for key in citys]
+            return airports
 
 
-ser = Search()
-start_time = datetime.now()
-dict, airport, arr_period_dates = ser.collects_all_flights_for_all_routes(start_date='2023.06.20',
-                                                                          end_date='2023.07.20',
-                                                                          airports=['LED', 'MOW', 'TOF'],
-                                                                          start_period=['2023.06.20', '2023.06.30'],
-                                                                          end_period=['2023.07.10', '2023.07.20'],
-                                                                          home='LED', finish='LED')
-end_time = datetime.now()
-delta_time = end_time - start_time
-print(f"Requests and collects all routes {delta_time}")
-start_time = datetime.now()
-G, all_routes = ser.compute_all_routes(dict, airport, arr_period_dates, home='LED', finish='LED',
-                                       tranzit=[('TOF', 30160)], hate_airl=['5N'])
-end_time = datetime.now()
-delta_time = end_time - start_time
-print(f"DFS {delta_time}")
-start_time = datetime.now()
 
-best_routes, price = ser.find_cheapest_route(all_routes)
-best_routes, sorted_time = ser.find_short_in_time_route(all_routes)
+# `DD/MM/YYYY` or `DD/MM/YYYY - DD/MM/YYYY`
+class SearchRequestData:
+    def __init__(self):
+        self.start_date = None
+        self.end_date = None
+        self.airports = []
+        self.start_period = None
+        self.end_period = None
+        self.home = None
+        self.finish = None
+        self.tranzit = []
+        self.hate_airl = []
+
+    def append_airport(self, airport: str):
+        self.airports.append(airport)
+    def set_start_date(self, value: str):
+        date_pattern = r'\d{2}.\d{2}.\d{4}'
+        # Паттерн для проверки периода в формате DD/MM/YYYY - DD/MM/YYYY
+        period_pattern = r'\d{2}.\d{2}.\d{4}\s*-\s*\d{2}.\d{2}.\d{4}'
+        if re.fullmatch(date_pattern, value):
+            self.start_date = value
+            self.start_period = [value, value]
+            return True
+        elif re.fullmatch(period_pattern, value):
+            match = re.search(r"\d{2}.\d{2}.\d{4}\s*-\s*(\d{2}.\d{2}.\d{4})", value)
+            if match:
+                first_date = match.group(1)
+                second_date = match.group(2)
+                self.start_date = first_date
+                self.start_period = [first_date, second_date]
+                return True
+        else:
+            return False
+        # Проверка, что формат даты `DD/MM/YYYY - DD/MM/YYYY` или `DD/MM/YYYY`. Смотри regular expressions (библиотека re)
+        # И потом разобрать строку на даты и вставить в нужные поля.
+    def append_time_tranzit(self, value: str):
+        '''
+        tranzit is str in format days or hours. Check is it contain 'д' or 'ч'
+        :return:
+        '''
+        tranzit_pattern_days = r'^(\d+)[д]$'
+        tranzit_pattern_hours = r'^(\d+)[ч]$'
+        match_d = re.match(tranzit_pattern_days, value)
+        match_h = re.match(tranzit_pattern_hours, value)
+        if match_d:
+            days_for_tranzit = match_d.group(1)
+            air = self.airports[-1]
+            self.tranzit.append((air, int(days_for_tranzit)*24*60))
+            return True
+        elif match_h:
+            hours_for_tranzit = match_h.group(1)
+            air = self.airports[-1]
+            self.tranzit.append((air, int(hours_for_tranzit)*60))
+            return True
+        else:
+            return False
 
 
+    def append_hate_airl(self, airl: str):
+        None
+    def append_home(self, home):
+        self.home = str(home)
+        self.airports.append(home)
+
+    def append_circle(self, fact: bool):
+        if fact == True:
+            self.finish = self.home
+    def append_finish_airport(self, airport):
+        self.finish = str(airport)
+        self.airports.append(airport)
+
+    def append_date_or_period_to_finish(self, value):
+        date_pattern = r'\d{2}.\d{2}.\d{4}'
+        # Паттерн для проверки периода в формате DD/MM/YYYY - DD/MM/YYYY
+        period_pattern = r'\d{2}.\d{2}.\d{4}\s*-\s*\d{2}.\d{2}.\d{4}'
+        if re.fullmatch(date_pattern, value):
+            self.end_date = value
+            self.end_period = [value, value]
+            return True
+        elif re.fullmatch(period_pattern, value):
+            match = re.search(r"(\d{2}.\d{2}.\d{4})\s*-\s*(\d{2}.\d{2}.\d{4})", value)
+            if match:
+                first_date = match.group(1)
+                second_date = match.group(2)
+                self.end_date = second_date
+                self.end_period = [first_date, second_date]
+                return True
+        else:
+            return False
+
+
+    def start(self):
+        '''
+        Is calling to search tickets
+        :return:
+        '''
+        print(self.start_date,
+        self.end_date,
+        self.airports,
+        self.start_period,
+        self.end_period,
+        self.home,
+        self.finish,
+        self.tranzit,)
+        sr = Search()
+        self.airports = sr.covert_city_to_air(self.airports)
+        self.home = sr.covert_city_to_air(self.home)
+        self.finish = sr.covert_city_to_air(self.finish)
+        flights, air, arr_period_dates = sr.collects_all_flights_for_all_routes(start_date=self.start_date,
+                                                                                  end_date=self.end_date,
+                                                                                  airports=self.airports,
+                                                                                  start_period=self.start_period,
+                                                                                  end_period=self.end_period,
+                                                                                  home=self.home, finish=self.finish)
+        G, all_routes = sr.compute_all_routes(flights, air, arr_period_dates, home=self.home, finish=self.finish,
+                                               tranzit=self.tranzit, hate_airl=self.hate_airl)
+        best_routes_price, price = sr.find_cheapest_route(all_routes)
+        best_routes_time, sorted_time = sr.find_short_in_time_route(all_routes)
+        return [best_routes_price[0].storage, price[0]], [[best_routes_time[0].storage], sorted_time[0]]
+
+        NotImplementedError
+    def to_convert_city_to_airport(self, city: str):
+        NotImplementedError
+
+class CheckData:
+    def check_city(self, city):
+        with open(r"C:\Users\Пользователь\PycharmProjects\pythonProject_avia\city2code.json", encoding="utf-8") as f:
+            data2 = json.load(f)
+            print(data2)
+            if city in data2:
+                return True
+
+# ser = Search()
+# start_time = datetime.now()
+# dict, airport, arr_period_dates = ser.collects_all_flights_for_all_routes(start_date='2023.06.20',
+#                                                                           end_date='2023.07.20',
+#                                                                           airports=['LED', 'MOW', 'TOF'],
+#                                                                           start_period=['2023.06.20', '2023.06.20'],
+#                                                                           end_period=['2023.07.10', '2023.07.20'],
+#                                                                           home='LED', finish='LED')
+# end_time = datetime.now()
+# delta_time = end_time - start_time
+# print(f"Requests and collects all routes {delta_time}")
+# start_time = datetime.now()
+# G, all_routes = ser.compute_all_routes(dict, airport, arr_period_dates, home='LED', finish='LED',
+#                                        tranzit=[('TOF', 30160)], hate_airl=['5N'])
+# end_time = datetime.now()
+# delta_time = end_time - start_time
+# print(f"DFS {delta_time}")
+# start_time = datetime.now()
+#
+# best_routes, price = ser.find_cheapest_route(all_routes)
+# best_routes, sorted_time = ser.find_short_in_time_route(all_routes)
+
+# class User:
+#     def analyzer(self, which_answer, answer):
+#         NotImplementedError
+#
+#     def jopa(self):
+#         NotImplementedError
 
 # возможность фиксировать дату вылета(диапазон) и дату прилета (интерфейс) (готово),
 # возможность задавать для пересадки доп. время, например - больше суток или от m до k суток (сделала пересадку от n времени)
