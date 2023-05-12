@@ -33,7 +33,7 @@ class Search():
                 if flights_on_data == None:
                     flights_on_data = flights
                 else:
-                    flights_on_data.update(flights)
+                    flights_on_data.extend(flights)
         if airports[0] == home:
             start_period = s_period[0]
             end_period = s_period[1]
@@ -107,13 +107,22 @@ class Search():
             dfs_not_circle(graph, node, finish, r)
         return paths
 
-    def compute_all_routes(self, dict_r, combinations_airports, arr_period_date, home, finish, tranzit, hate_airl):
-        '''
+    def compute_all_routes(self, start_date, end_date, airports, start_period, end_period, home, finish, tranzit, hate_airl):
+        '''                      start_date, end_date, airports, start_period, end_period, home, finish, tranzit
         Input: dict with all possible flights between all selected airports.
         To compute all possible routes from all flights.
         Return: Graf and array with routes.
         '''
-
+        airports = self.convert_city_to_air(airports)
+        home = self.convert_city_to_air(home)
+        finish = self.convert_city_to_air(finish)
+        tranzit = self.convert_tranzit_city_to_air(tranzit)
+        flights, combinations_airports, arr_period_date = self.collects_all_flights_for_all_routes(start_date=start_date,
+                                                                                end_date=end_date,
+                                                                                airports=airports,
+                                                                                start_period=start_period,
+                                                                                end_period=end_period,
+                                                                                home=home, finish=finish)
         G = nx.MultiDiGraph()
         airports = []
         for idx, i in enumerate(combinations_airports):
@@ -122,7 +131,7 @@ class Search():
         airports = set(airports)
         G.add_nodes_from(airports)
         for idx, i in enumerate(combinations_airports):
-            time_data = dict_r[i]
+            time_data = flights[i]
             for j in range(len(arr_period_date)):
                 if len(time_data) < len(arr_period_date):
                     keys_list = list(time_data.keys())
@@ -283,7 +292,8 @@ class Search():
     def offers(self, **kwargs):
         url = self.patricular_url_for_req(**kwargs)
         py_data = self.request(url)
-        if py_data['data'] == []:
+
+        if py_data['data'] == [] or py_data['success'] == False:
             return
         else:
             flight_for_month = self.flight_for_month(py_data['data'])
@@ -305,4 +315,4 @@ class Search():
                 airports = [data[tuple_city_and_time[0]] for tuple_city_and_time in citys]
                 for idx, i in enumerate(citys):
                     new_tranzit_list.append((airports[idx], i[1]))
-        return new_tranzit_list
+                return new_tranzit_list

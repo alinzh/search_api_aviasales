@@ -100,28 +100,28 @@ class SearchRequestData:
         Is calling to search tickets
         :return:
         '''
-        print(self.start_date, #период а не дата
-              self.end_date,
-              self.airports,
-              self.start_period,#['2023.06.01 - 2023.06.02', '2023.06.02']
-              self.end_period,
-              self.home,
-              self.finish,
-              self.tranzit)
-
-        sr = Search()
-        self.airports = sr.convert_city_to_air(self.airports)
-        self.home = sr.convert_city_to_air(self.home)
-        self.finish = sr.convert_city_to_air(self.finish)
-        self.tranzit = sr.convert_tranzit_city_to_air(self.tranzit)
-        flights, air, arr_period_dates = sr.collects_all_flights_for_all_routes(start_date=self.start_date,
-                                                                                end_date=self.end_date,
-                                                                                airports=self.airports,
-                                                                                start_period=self.start_period,
-                                                                                end_period=self.end_period,
-                                                                                home=self.home, finish=self.finish)
-        G, all_routes = sr.compute_all_routes(flights, air, arr_period_dates, home=self.home, finish=self.finish,
-                                              tranzit=self.tranzit, hate_airl=self.hate_airl)
-        best_routes_price, price = sr.find_cheapest_route(all_routes)
-        best_routes_time, sorted_time = sr.find_short_in_time_route(all_routes)
-        return [best_routes_price[0].storage, price[0]], [[best_routes_time[0].storage], sorted_time[0]]
+        # print(self.start_date, #период а не дата
+        #       self.end_date,
+        #       self.airports,
+        #       self.start_period,#['2023.06.01 - 2023.06.02', '2023.06.02']
+        #       self.end_period,
+        #       self.home,
+        #       self.finish,
+        #       self.tranzit)
+        #
+        # sr = Search()
+        # self.airports = sr.convert_city_to_air(self.airports)
+        # self.home = sr.convert_city_to_air(self.home)
+        # self.finish = sr.convert_city_to_air(self.finish)
+        # self.tranzit = sr.convert_tranzit_city_to_air(self.tranzit)
+        # flights, air, arr_period_dates = sr.collects_all_flights_for_all_routes(start_date=self.start_date,
+        #                                                                         end_date=self.end_date,
+        #                                                                         airports=self.airports,
+        #                                                                         start_period=self.start_period,
+        #                                                                         end_period=self.end_period,
+        #                                                                         home=self.home, finish=self.finish)
+        # G, all_routes = sr.compute_all_routes(flights, air, arr_period_dates, home=self.home, finish=self.finish,
+        #                                       tranzit=self.tranzit, hate_airl=self.hate_airl)
+        # best_routes_price, price = sr.find_cheapest_route(all_routes)
+        # best_routes_time, sorted_time = sr.find_short_in_time_route(all_routes)
+        return self.start_date, self.end_date, self.airports, self.start_period, self.end_period, self.home, self.finish, self.tranzit, self.hate_airl
