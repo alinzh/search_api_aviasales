@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Мой сайт</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<div class="bg"></div>
+
+<header>
+    <h1>Aviasales</h1>
+</header>
+
+<form>
+    <label for="departure">Город отправления</label>
+    <input type="text" id="departure" name="departure" required>
+
+    <label for="destination">Город назначения</label>
+    <input type="text" id="destination" name="destination" required>
+
+    <div class="intermediate-stop">
+        <label for="intermediate_stop">Промежуточный пункт</label>
+        <input type="text" id="intermediate_stop" name="intermediate_stop">
+        <button type="button" id="add_stop">Добавить</button>
+    </div>
+
+    <div class="time-in-city">
+        <label for="time_in_city">Желаемое время в городе</label>
+        <input type="text" id="time_in_city" name="time_in_city">
+    </div>
+
+    <div class="exclude-airline">
+        <label for="exclude_airline">Исключить авиакомпанию</label>
+        <select id="exclude_airline" name="exclude_airline">
+            <option value="none">Нет исключений</option>
+            <option value="aeroflot">Aeroflot</option>
+            <option value="s7">S7 Airlines</option>
+            <option value="rossiya">Rossiya Airlines</option>
+            <option value="utair">Utair Aviation</option>
+            <option value="vueling">Vueling Airlines</option>
+            <option value="ryanair">Ryanair</option>
+        </select>
+    </div>
+
+    <div class="travel-period">
+        <label for="travel_period">Период путешествия</label>
+        <input type="text" id="travel_period" name="travel_period">
+    </div>
+
+    <label for="passengers">Пассажиры</label>
+    <select id="passengers" name="passengers">
+        <option value="1">1 пассажир</option>
+        <option value="2">2 пассажира</option>
+        <option value="3">3 пассажира</option>
+        <option value="4">4 пассажира</option>
+        <option value="5">5 пассажиров</option>
+        <option value="6">6 пассажиров</option>
+        <option value="7">7 пассажиров</option>
+        <option value="8">8 пассажиров</option>
+        <option value="9">9 пассажиров</option>
+    </select>
+
+    <button type="submit">Найти билеты</button>
+</form>
+
+<script>
+  const addStopButton = document.getElementById('add_stop');
+  const intermediateStop = document.querySelector('.intermediate-stop');
+
+  addStopButton.addEventListener('click', () => {
+    const newStopInput = document.createElement('input');
+    newStopInput.type = 'text';
+    newStopInput.name = 'intermediate_stop';
+    intermediateStop.appendChild(newStopInput);
+  });
+
+</script>
+</body>
+</html>
