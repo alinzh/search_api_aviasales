@@ -4,6 +4,7 @@ from route import Route
 from search import Search
 from serchrequestdata import SearchRequestData
 from check_answer import CheckData
+import sql_users
 
 
 bot = telebot.TeleBot("6182172702:AAE-aoQSvCTuyIWKv6zCrXMDM4CB6sYbJtY", parse_mode=None)
@@ -40,6 +41,8 @@ def send_welcome(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('Начать поиск', callback_data='compute_route'))
     bot.reply_to(message, "Приветственное сообщение, рассказ о возможностях бота", reply_markup=markup, parse_mode="Markdown")
+    sql_users.create_table_in_database()
+    sql_users.add_users_to_sql([(message.from_user.id, message.from_user.username, message.from_user.full_name)])
 
 @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_AIRPORT)
 def airport_handler(message):
@@ -361,7 +364,10 @@ def finish_date_or_period_handler(message):
     else:
         bot.send_message(message.chat.id,
                          text="Дата или период в неверном формате, пожалуйста, напиши ее, как в примере:\nдату вылета в формате `YYYY.MM.DD` или период в формате `YYYY.MM.DD - YYYY.MM.DD` ")
-
+@bot.message_handler(commands=['request_to_sql'])
+def send_welcome(message):
+    document_send = sql_users.convert_to_excel()
+    bot.send_document(message.chat.id, document_send)
 
 bot.polling(none_stop=True, interval=0)
 
