@@ -1,6 +1,7 @@
 import re
 from search import Search
-
+import air_iata
+import datetime
 
 class SearchRequestData:
     def __init__(self):
@@ -29,6 +30,10 @@ class SearchRequestData:
             period_pattern = r'(\d{4}.\d{2}.\d{2})\s*-\s*(\d{4}.\d{2}.\d{2})'
             match = re.search(period_pattern, value)
             if match:
+                first_date = datetime.datetime.strptime(match.group(1), '%Y.%m.%d')
+                second_date = datetime.datetime.strptime(match.group(2), '%Y.%m.%d')
+                if second_date < first_date:
+                    return False
                 first_date = match.group(1)
                 second_date = match.group(2)
                 self.start_date = first_date
@@ -62,7 +67,12 @@ class SearchRequestData:
             return False
 
     def append_hate_airl(self, airl: str):
-        None
+        dict_airlines = air_iata.air_iata()
+        if airl in dict_airlines:
+            self.hate_airl.append(airl)
+            return True
+        else:
+            return False
 
     def append_home(self, home):
         self.home = str(home)
@@ -73,55 +83,44 @@ class SearchRequestData:
             self.finish = self.home
 
     def append_finish_airport(self, airport):
-        self.finish = str(airport)
-        self.airports.append(airport)
+        if airport != self.home:
+            self.finish = str(airport)
+            self.airports.append(airport)
+            return True
+        else:
+            return False
 
     def append_date_or_period_to_finish(self, value):
         date_pattern = r'\d{4}.\d{2}.\d{2}'
         # Паттерн для проверки периода в формате DD/MM/YYYY - DD/MM/YYYY
         period_pattern = r'\d{4}.\d{2}.\d{2}\s*-\s*\d{4}.\d{2}.\d{2}'
         if re.fullmatch(date_pattern, value):
-            self.end_date = value
-            self.end_period = [value, value]
+            first_date = datetime.datetime.strptime(self.start_date, '%Y.%m.%d')
+            second_date = datetime.datetime.strptime(value, '%Y.%m.%d')
+            if second_date < first_date:
+                return False
+            else:
+                self.end_date = value
+                self.end_period = [value, value]
             return True
         elif re.fullmatch(period_pattern, value):
             match = re.search(r"(\d{4}.\d{2}.\d{2})\s*-\s*(\d{4}.\d{2}.\d{2})", value)
             if match:
-                first_date = match.group(1)
-                second_date = match.group(2)
-                self.end_date = second_date
-                self.end_period = [first_date, second_date]
+                first_date = datetime.datetime.strptime(match.group(1), '%Y.%m.%d')
+                second_date = datetime.datetime.strptime(match.group(2), '%Y.%m.%d')
+                departure_from_home = datetime.datetime.strptime(self.start_date, '%Y.%m.%d')
+                if second_date < first_date:
+                    return False
+                elif second_date < departure_from_home:
+                    return False
+                else:
+                    first_date = match.group(1)
+                    second_date = match.group(2)
+                    self.end_date = second_date
+                    self.end_period = [first_date, second_date]
                 return True
         else:
             return False
 
     def start(self):
-        '''
-        Is calling to search tickets
-        :return:
-        '''
-        # print(self.start_date, #период а не дата
-        #       self.end_date,
-        #       self.airports,
-        #       self.start_period,#['2023.06.01 - 2023.06.02', '2023.06.02']
-        #       self.end_period,
-        #       self.home,
-        #       self.finish,
-        #       self.tranzit)
-        #
-        # sr = Search()
-        # self.airports = sr.convert_city_to_air(self.airports)
-        # self.home = sr.convert_city_to_air(self.home)
-        # self.finish = sr.convert_city_to_air(self.finish)
-        # self.tranzit = sr.convert_tranzit_city_to_air(self.tranzit)
-        # flights, air, arr_period_dates = sr.collects_all_flights_for_all_routes(start_date=self.start_date,
-        #                                                                         end_date=self.end_date,
-        #                                                                         airports=self.airports,
-        #                                                                         start_period=self.start_period,
-        #                                                                         end_period=self.end_period,
-        #                                                                         home=self.home, finish=self.finish)
-        # G, all_routes = sr.compute_all_routes(flights, air, arr_period_dates, home=self.home, finish=self.finish,
-        #                                       tranzit=self.tranzit, hate_airl=self.hate_airl)
-        # best_routes_price, price = sr.find_cheapest_route(all_routes)
-        # best_routes_time, sorted_time = sr.find_short_in_time_route(all_routes)
         return self.start_date, self.end_date, self.airports, self.start_period, self.end_period, self.home, self.finish, self.tranzit, self.hate_airl

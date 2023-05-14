@@ -7,6 +7,7 @@ import numpy as np
 import requests
 import datetime_utils
 from route import Route
+import air_iata
 class Search():
 
     def __init__(self, token="191827beb804bd4d4025b75737717e18"):
@@ -33,7 +34,7 @@ class Search():
                 if flights_on_data == None:
                     flights_on_data = flights
                 else:
-                    flights_on_data.extend(flights)
+                    flights_on_data.update(flights)
         if airports[0] == home:
             start_period = s_period[0]
             end_period = s_period[1]
@@ -117,6 +118,8 @@ class Search():
         home = self.convert_city_to_air(home)
         finish = self.convert_city_to_air(finish)
         tranzit = self.convert_tranzit_city_to_air(tranzit)
+        if hate_airl != [] and hate_airl != None:
+            hate_airl = self.convert_name_airlines_to_iata(hate_airl)
         flights, combinations_airports, arr_period_date = self.collects_all_flights_for_all_routes(start_date=start_date,
                                                                                 end_date=end_date,
                                                                                 airports=airports,
@@ -316,3 +319,10 @@ class Search():
                 for idx, i in enumerate(citys):
                     new_tranzit_list.append((airports[idx], i[1]))
                 return new_tranzit_list
+
+    def convert_name_airlines_to_iata(self, airlines):
+        dict_airlines = air_iata.air_iata()
+        iata_airlines = []
+        for name_company in airlines:
+            iata_airlines.append(dict_airlines[name_company])
+        return iata_airlines

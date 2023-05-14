@@ -40,7 +40,22 @@ class UserState:
 def send_welcome(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('Начать поиск', callback_data='compute_route'))
-    bot.reply_to(message, "Приветственное сообщение, рассказ о возможностях бота", reply_markup=markup, parse_mode="Markdown")
+    bot.reply_to(message, "Привет!👋\n\
+Я — бот, поисковик авиабилетов, который умеет искать с более гибкими фильтрами чем aviasales. Я умею строить сложные маршруты с гибкими датами и находить оптимальную последовательность пунктов маршрута.\
+\n\nЯ могу тебе помочь👇\
+\n— построить маршрут из большого кол-ва городов\
+\n— найти самую дешевую последовательность городов в маршруте\
+\n— направить тебе самые быстрые или самые дешевые варианты маршрутов\n\n\
+Ты можешь указать👇\
+\n— возвратный или нет маршрут\
+\n— города, которые будут использованы в построении маршрута\
+\n— период вылета и прилета (плавающая дата или точная)\
+\n— пересадку в конкретном городе (в днях или часах — на выбор), по умолчанию — от 60 мин\
+\n— авиакомпании, которые не следует включать в маршрут\n\n\
+🙏🏻Моя миссия:\n\
+Помогать путешественникам находить самые оптимальные вариантов маршрута без долгого и утомительного поиска вручную. Со мной тебе достаточно единажды ввести все желаемые параметры и выбрать лучший маршрут из тех, что я предложу.\
+\n\nP.S.\n\
+Не переживай, если в случае большого диапазона дат или большого кол-ва городов я стану строить маршруты долго. Иногда, в особо объемных случаях, я могу работать больше 1 минуты. За это время ты можешь выйти и поскроллить ленту, а потом — вернуться. Главное, не выключай уведомления😉", reply_markup=markup, parse_mode="Markdown")
     sql_users.create_table_in_database()
     sql_users.add_users_to_sql([(message.from_user.id, message.from_user.username, message.from_user.full_name)])
 
@@ -54,6 +69,7 @@ def airport_handler(message):
         users_state[message.chat.id].state = UserStates.WAIT_FOR_TRANSIT_PERIOD
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton('Пропустить', callback_data='skeep_tranzit'))
+        markup.add(types.InlineKeyboardButton('Начать заново', callback_data='compute_route'))
         bot.send_message(message.chat.id, text="Напиши минимальный период транзита через этот город, либо в формате дней, например '5д', либо в формате часов, например '10ч'. Обязательно укажи, в чем ты измеряешь длительность переасадки ;)\nЛибо ты можешь пропустить этот момент - если тебе неважно.",reply_markup=markup, parse_mode="Markdown")
     else:
         bot.send_message(message.chat.id, text="Название города указано с ошибками, проверь правописание и напиши еще раз в И.П. с заглавной буквы")
@@ -64,7 +80,7 @@ def skeep_tranzit_handler(callback_query):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('Добавить город', callback_data='add_airport'))
     markup.add(types.InlineKeyboardButton('Выбрать нежеланные авиакомпании', callback_data='hate_airl'))
-    markup.add(types.InlineKeyboardButton('*Начать поиск!*', callback_data='start_search'))
+    markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
     bot.reply_to(callback_query.message, text="Супер! Что делаем дальше?", reply_markup = markup)
 @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_TRANSIT_PERIOD)
 def transit_period_handler(message):
@@ -75,7 +91,7 @@ def transit_period_handler(message):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton('Добавить город', callback_data='add_airport'))
         markup.add(types.InlineKeyboardButton('Выбрать нежеланные авиакомпании', callback_data='hate_airl'))
-        markup.add(types.InlineKeyboardButton('*Начать поиск!*', callback_data='start_search'))
+        markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
         bot.send_message(message.chat.id, text="Супер! Что делаем дальше?", reply_markup = markup)
     elif answer == False:
         bot.send_message(message.chat.id, text="Транзит в неверном формате.\nВведи, пожалуйста, еще раз, либо в днях - число с буквой 'д', ибо в часах - число с буквой 'ч'.\nНапример '7д' или '12ч'.")
@@ -95,24 +111,20 @@ def choose_hate_airl_handler(callback_query):
     except KeyError:
         bot.send_message(callback_query.message.chat.id, "Упс, что-то пошло не так. Начни поиск заново командой /start")
     else:
-        markup = types.ReplyKeyboardMarkup(row_width=2)
-        itembtn1 = types.KeyboardButton('Победа')
-        itembtn2 = types.KeyboardButton('Azur Air')
-        itembtn3 = types.KeyboardButton('Smartavia')
-        itembtn4 = types.KeyboardButton('Ямал')
-        itembtn5 = types.KeyboardButton('Azimut')
-        itembtn6 = types.KeyboardButton('Уральские авиалинии')
-        markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5, itembtn6)
-        bot.reply_to(callback_query.message, "Выбери авиакомпанию, которую не стоит добавлять в подборку. Если передумал - нажми в предыдущем сообщении другой вариант продолжения!")
+        bot.reply_to(callback_query.message, "Напиши название авиакомпании, которую не стоит добавлять в подборку. Пиши с заглавной буквы.")
 @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_HATE_AIRL)
 def hate_airl_handler(message):
     hate_airl = message.text
-    users_state[message.chat.id].search_request_data.append_hate_airl(hate_airl)
-    users_state[message.chat.id].state = UserStates.WAIT_FOR_CHOOSE
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton('Добавить город', callback_data='add_airport'))
-    markup.add(types.InlineKeyboardButton('*Начать поиск!*', callback_data='start_search'))
-    bot.send_message(message.chat.id, text="Супер! Что делаем дальше?", reply_markup=markup)
+    answer = users_state[message.chat.id].search_request_data.append_hate_airl(hate_airl)
+    if answer == True:
+        users_state[message.chat.id].state = UserStates.WAIT_FOR_CHOOSE
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton('Добавить город', callback_data='add_airport'))
+        markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
+        markup.add(types.InlineKeyboardButton('Добавить еще исключение из авиакомпаний', callback_data='hate_airl'))
+        bot.send_message(message.chat.id, text="Супер! Что делаем дальше?", reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, text="Название авиакомпании написано некорректно. Попробуй еще раз, пиши с заглавной буквы.\nЕсли сомневаешься - посмотри список доступных авиакомпаний.\nСсылка")
 
 @bot.callback_query_handler(lambda callback_query: callback_query.data == "start_search")
 def start_search_handler(callback_query):
@@ -140,6 +152,7 @@ def start_search_handler(callback_query):
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton('Еще дешевых', callback_data='show_next_cheap_flight'))
             markup.add(types.InlineKeyboardButton('Еще быстрых', callback_data='show_next_fast_flight'))
+            markup.add(types.InlineKeyboardButton('Начать новый поиск!', callback_data='compute_route'))
             suggested_by_price = next(users_state[callback_query.message.chat.id].best_in_price)
             suggested_by_time = next(users_state[callback_query.message.chat.id].best_in_time)
             all_route_cheap = f''
@@ -171,7 +184,7 @@ def start_search_handler(callback_query):
                         f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
                 all_route_fast += route
             bot.reply_to(callback_query.message,
-                         f'💰<b>Самый дешевый</b>\n💸Цена за все перелёты: {suggested_by_price.total_price()}₽\n\n{all_route_cheap}\n\n⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()}\n\n{all_route_fast}',
+                         f'💰<b>Самый дешевый</b>\n💸Цена за все перелёты: {suggested_by_price.total_price()}₽\n\n{all_route_cheap}\n\n⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()} мин\n\n{all_route_fast}',
                          reply_markup=markup, parse_mode="HTML")
 
 @bot.callback_query_handler(lambda callback_query: callback_query.data == "show_next_cheap_flight")
@@ -194,6 +207,7 @@ def start_search_handler(callback_query):
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton('Еще дешевых', callback_data='show_next_cheap_flight'))
             markup.add(types.InlineKeyboardButton('Еще быстрых', callback_data='show_next_fast_flight'))
+            markup.add(types.InlineKeyboardButton('Начать новый поиск!', callback_data='compute_route'))
             all_route_cheap = f''
             for idx, flight in enumerate(suggested_by_price.storage):
                 number = (idx + 1)
@@ -221,7 +235,7 @@ def start_search_handler(callback_query):
                                  "Упс, что-то пошло не так. Начни поиск заново командой /start")
     else:
         try:
-            suggesed_by_time = next(users_state[callback_query.message.chat.id].best_in_time)
+            suggested_by_time = next(users_state[callback_query.message.chat.id].best_in_time)
         except:
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton('Продолжить поиск!', callback_data='compute_route'))
@@ -232,6 +246,7 @@ def start_search_handler(callback_query):
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton('Еще дешевых', callback_data='show_next_cheap_flight'))
             markup.add(types.InlineKeyboardButton('Еще быстрых', callback_data='show_next_fast_flight'))
+            markup.add(types.InlineKeyboardButton('Начать новый поиск!', callback_data='compute_route'))
             all_route_fast = f''
             for idx, flight in enumerate(suggested_by_time.storage):
                 number = (idx + 1)
@@ -249,45 +264,6 @@ def start_search_handler(callback_query):
             bot.reply_to(callback_query.message,
                                  f'⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()}мин\n\n{all_route_fast}',
                          reply_markup=markup, parse_mode="HTML")
-
-
-
-
-
-    # Сделать в этом методе
-    # Затем перегоняешь их в итератор как `best_in_price = iter(best_in_price)`
-    # Затем в состояние юзера users_state[callback_query.message.chat.id] кладешь получнные итераторы best_in_price и best_in_time
-    # Затем в реплай кидаешь next(best_in_price) и next(best_in_time)
-
-
-    # Методы кнопок вне этой функции.
-    # Колбэк кнопки "больше дешевых" или "больше быстрых" идет в состояние юзера и делает next(users_state[callback_query.message.chat.id].best_in_price) или next(users_state[callback_query.message.chat.id].best_in_time)
-    # Сделай обработку на случай StopIteration - это значит, что ты показала всё, что есть и больше нет смысла показывать кнопки "показать еще"
-
-
-    # users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_END
-    # date = users_state[callback_query.message.chat.id].search_request_data.constructor_answer()
-    # score = 0
-    # route_for_show = best_in_price[0]
-    # route_for_show_time = best_in_time[0]
-    # for score_t in route_for_show_time:
-    #     for score_p in route_for_show:
-    #         all_flight_p = f''
-    #         all_flight_t = f''
-    #         for flight_p in route_for_show:
-    #             for flight_t in route_for_show_time[0]:
-    #                 score += 1
-    #                 data_for_show = flight_p[2]
-    #                 data_for_show_time = flight_t[2]
-    #                 one_flight_p = f'{score}) Из {score_p[0]} в {score_p[1]}\n\nЦена билета: {data_for_show["weight"]}\n\Отправление: {data_for_show["time"]}\nАвиакомпания: {data_for_show["airlines"]}\nСсылка на билет: aviasales.ru{data_for_show["link"]}'
-    #                 one_flight_t = f'{score}) Из {score_t[0]} в {score_t[1]}\n\nЦена билета: {data_for_show_time["weight"]}\n\Отправление: {data_for_show_time["time"]}\nАвиакомпания: {data_for_show_time["airlines"]}\nСсылка на билет: aviasales.ru{data_for_show_time["link"]}'
-    #                 all_flight_p += one_flight_p
-    #                 all_flight_t += one_flight_t
-    # markup = types.InlineKeyboardMarkup()
-    # markup.add(types.InlineKeyboardButton('Еще дешевых', callback_data='show_next_cheap_flight'))
-    # markup.add(types.InlineKeyboardButton('Еще быстрых', callback_data='show_next_fast_flight'))
-    # bot.reply_to(callback_query.message,f'Самый дешевый. Цена: {best_in_price[1]}\nДанные о рейсах:\n\n{all_flight_p}\n\nСамый быстрый.\nВремя: {route_for_show_time[1]}\nДанные о рейсах:\n\n{all_flight_t}',
-    #              reply_markup=markup)
 
 @bot.callback_query_handler(lambda callback_query: callback_query.data == "compute_route")
 def compute_route_handler(callback_query):
@@ -348,9 +324,16 @@ def finish_airport_handler(message):
     answer = CheckData().check_city(airport)
     if answer == True:
     # TODO: Чекнуть, если дано название(город) аэропорта, то получить код аэропорта через API aviasales, чтобы Москва стала MOW, например.
-        users_state[message.chat.id].search_request_data.append_finish_airport(airport)
-        users_state[message.chat.id].state = UserStates.WAIT_FOR_FINISH_DEPARTURE
-        bot.send_message(message.chat.id, text="Напиши дату последнего полета в формате `YYYY.MM.DD` или период в формате `YYYY.MM.DD - YYYY.MM.DD`")
+        answer = users_state[message.chat.id].search_request_data.append_finish_airport(airport)
+        if answer == True:
+            users_state[message.chat.id].state = UserStates.WAIT_FOR_FINISH_DEPARTURE
+            bot.send_message(message.chat.id, text="Напиши дату последнего полета в формате `YYYY.MM.DD` или период в формате `YYYY.MM.DD - YYYY.MM.DD`")
+        else:
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton('Кольцевой', callback_data='circle'))
+            bot.send_message(message.chat.id,
+                         text="Название города прилета совпадает с городом вылета, такой фильтр невозможен для маршрута в одну сторону. Если ты хочешь найти кольцевой маршрут, нажми на кнопку Кольцевой.", reply_markup=markup)
+
     else:
         bot.send_message(message.chat.id, text="Название города указано с ошибками, проверь правописание и напиши еще раз в И.П. с заглавной буквы")
 
@@ -375,4 +358,12 @@ bot.polling(none_stop=True, interval=0)
 #убери возможность регировать на сообщения или ломаться, если пользоват. пишет, не когда нужно
 #убери или обдумай hate_airl
 #сделай проверку на то что конечный аэропорт не может быть аэропортом вылета в НЕ кольцевом маршруте
+
+#TODO:
+# сделай возможность писать города в хронологическом порядке
+# добавь состояние пользователя в базу.
+# может ли телега дать виджит календаря
+# фиксить дфс
+# глянь api
+
 
