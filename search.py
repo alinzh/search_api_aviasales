@@ -8,6 +8,9 @@ import requests
 import datetime_utils
 from route import Route
 import air_iata
+import time
+from datetime import datetime, timedelta
+
 class Search():
 
     def __init__(self, token="191827beb804bd4d4025b75737717e18"):
@@ -108,6 +111,7 @@ class Search():
             dfs_not_circle(graph, node, finish, r)
         return paths
 
+
     def compute_all_routes(self, start_date, end_date, airports, start_period, end_period, home, finish, tranzit, hate_airl):
         '''                      start_date, end_date, airports, start_period, end_period, home, finish, tranzit
         Input: dict with all possible flights between all selected airports.
@@ -120,12 +124,17 @@ class Search():
         tranzit = self.convert_tranzit_city_to_air(tranzit)
         if hate_airl != [] and hate_airl != None:
             hate_airl = self.convert_name_airlines_to_iata(hate_airl)
+        start_time = time.time()
         flights, combinations_airports, arr_period_date = self.collects_all_flights_for_all_routes(start_date=start_date,
                                                                                 end_date=end_date,
                                                                                 airports=airports,
                                                                                 start_period=start_period,
                                                                                 end_period=end_period,
                                                                                 home=home, finish=finish)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print("Время выполнения request:", execution_time, "секунд")
+        start_time = time.time()
         G = nx.MultiDiGraph()
         airports = []
         for idx, i in enumerate(combinations_airports):
@@ -178,6 +187,9 @@ class Search():
                                     airlines=data_for_one_flight['airline'], link=data_for_one_flight['link'])
 
         all_routes = self.find_paths_of_length(G, home, path_len=(len(airports) + 1), finish=finish, tranzit=tranzit)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print("Время выполнения dfs:", execution_time, "секунд")
         return G, all_routes
 
     def find_cheapest_route(self, routes: List[Route]):

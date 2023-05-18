@@ -27,14 +27,29 @@ class UserStates(IntEnum):
     WAIT_FOR_FINISH_AIRPORT = 11
     WAIT_FOR_MORE_TICKETS = 12
 
-
-
 class UserState:
-    def __init__(self):
+    def __init__(self, user_id):
         self.state = None
-        self.search_request_data = SearchRequestData()
+        self.user_id = user_id
+        self.search_request_data = SearchRequestData(user_id=self.user_id)
         self.best_in_price = None
         self.best_in_time = None
+
+# sql_users.create_table_in_database()
+date_from_sql = sql_users.get_all_data_from_table()
+# TODO создай таблицу с транзитом в конкретном городе конкретного юзера.
+# TODO Извлеки от туда всё и добавить в searchrequestdata конкретного юзера (через экз.класса UserState).
+# TODO Извлеки из таблицы users_airport всё и также добавь.
+# TODO Чекни, что произойдет, если у юзера будет состояние WAIT_FOR_CHOOSE (он должен нажать на кнопку)
+# TODO Убери в хедере лишнюю проверку на состояние пользователя ->> or sql_users.get_user_state(message.from_user.id) == int(UserStates.WAIT_FOR_AIRPORT)
+
+for i in date_from_sql:
+    if (date_from_sql != None) or (date_from_sql != []):
+        user_id = i[0]
+        state = i[3]
+        users_state[user_id] = UserState(user_id = user_id)
+        users_state[user_id].state = state
+
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -56,10 +71,11 @@ def send_welcome(message):
 Помогать путешественникам находить самые оптимальные вариантов маршрута без долгого и утомительного поиска вручную. Со мной тебе достаточно единажды ввести все желаемые параметры и выбрать лучший маршрут из тех, что я предложу.\
 \n\nP.S.\n\
 Не переживай, если в случае большого диапазона дат или большого кол-ва городов я стану строить маршруты долго. Иногда, в особо объемных случаях, я могу работать больше 1 минуты. За это время ты можешь выйти и поскроллить ленту, а потом — вернуться. Главное, не выключай уведомления😉", reply_markup=markup, parse_mode="Markdown")
-    sql_users.create_table_in_database()
-    sql_users.add_users_to_sql([(message.from_user.id, message.from_user.username, message.from_user.full_name)])
+    sql_users.add_users_to_sql([(message.from_user.id, message.from_user.username, message.from_user.full_name, 0, '', '', '', '', '', '', '[]', '[]')])
 
-@bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_AIRPORT)
+
+@bot.message_handler(func=lambda message: (message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_AIRPORT) or sql_users.get_user_state(message.from_user.id) == int(UserStates.WAIT_FOR_AIRPORT))
+# @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_AIRPORT)
 def airport_handler(message):
     airport = message.text
     answer = CheckData().check_city(airport)
@@ -67,6 +83,7 @@ def airport_handler(message):
     # TODO: Чекнуть, если дано название(город) аэропорта, то получить код аэропорта через API aviasales, чтобы Москва стала MOW, например.
         users_state[message.chat.id].search_request_data.append_airport(airport)
         users_state[message.chat.id].state = UserStates.WAIT_FOR_TRANSIT_PERIOD
+        sql_users.update_user_state(message.chat.id, users_state[message.chat.id].state)
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton('Пропустить', callback_data='skeep_tranzit'))
         markup.add(types.InlineKeyboardButton('Начать заново', callback_data='compute_route'))
@@ -77,17 +94,20 @@ def airport_handler(message):
 @bot.callback_query_handler(lambda callback_query: callback_query.data == "skeep_tranzit")
 def skeep_tranzit_handler(callback_query):
     users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_CHOOSE
+    sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('Добавить город', callback_data='add_airport'))
     markup.add(types.InlineKeyboardButton('Выбрать нежеланные авиакомпании', callback_data='hate_airl'))
     markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
     bot.reply_to(callback_query.message, text="Супер! Что делаем дальше?", reply_markup = markup)
-@bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_TRANSIT_PERIOD)
+# @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_TRANSIT_PERIOD)
+@bot.message_handler(func=lambda message: (message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_TRANSIT_PERIOD) or sql_users.get_user_state(message.from_user.id) == int(UserStates.WAIT_FOR_TRANSIT_PERIOD))
 def transit_period_handler(message):
     time_tranzit = message.text
     answer = users_state[message.chat.id].search_request_data.append_time_tranzit(time_tranzit)
     if answer == True:
         users_state[message.chat.id].state = UserStates.WAIT_FOR_CHOOSE
+        sql_users.update_user_state(message.chat.id, users_state[message.chat.id].state)
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton('Добавить город', callback_data='add_airport'))
         markup.add(types.InlineKeyboardButton('Выбрать нежеланные авиакомпании', callback_data='hate_airl'))
@@ -100,6 +120,7 @@ def transit_period_handler(message):
 def add_air_handler(callback_query):
     try:
         users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_AIRPORT
+        sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
     except KeyError:
         bot.send_message(callback_query.message.chat.id, "Упс, что-то пошло не так. Начни поиск заново командой /start")
     else:
@@ -108,30 +129,32 @@ def add_air_handler(callback_query):
 def choose_hate_airl_handler(callback_query):
     try:
         users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_HATE_AIRL
+        sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
     except KeyError:
         bot.send_message(callback_query.message.chat.id, "Упс, что-то пошло не так. Начни поиск заново командой /start")
     else:
         bot.reply_to(callback_query.message, "Напиши название авиакомпании, которую не стоит добавлять в подборку. Пиши с заглавной буквы.")
-@bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_HATE_AIRL)
+# @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_HATE_AIRL)
+@bot.message_handler(func=lambda message: (message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_HATE_AIRL) or sql_users.get_user_state(message.from_user.id) == int(UserStates.WAIT_FOR_HATE_AIRL))
 def hate_airl_handler(message):
     hate_airl = message.text
     answer = users_state[message.chat.id].search_request_data.append_hate_airl(hate_airl)
     if answer == True:
         users_state[message.chat.id].state = UserStates.WAIT_FOR_CHOOSE
+        sql_users.update_user_state(message.chat.id, users_state[message.chat.id].state)
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton('Добавить город', callback_data='add_airport'))
         markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
         markup.add(types.InlineKeyboardButton('Добавить еще исключение из авиакомпаний', callback_data='hate_airl'))
         bot.send_message(message.chat.id, text="Супер! Что делаем дальше?", reply_markup=markup)
     else:
-        bot.send_message(message.chat.id, text="Название авиакомпании написано некорректно. Попробуй еще раз, пиши с заглавной буквы.\nЕсли сомневаешься - посмотри список доступных авиакомпаний.\nСсылка")
+        bot.send_message(message.chat.id, text="Название авиакомпании написано некорректно. Попробуй еще раз, пиши с заглавной буквы.\nЕсли сомневаешься - посмотри официальное название авиакомпании, например:\n'Ред Вингс' или 'Северный Ветер (Nordwind Airlines)'")
 
 @bot.callback_query_handler(lambda callback_query: callback_query.data == "start_search")
 def start_search_handler(callback_query):
-    # TODO
-    # TODO: тут получаешь список самых дешевых и список самых быстрых
     try:
         users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_END
+        sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
     except:
         bot.send_message(callback_query.message.chat.id, "Упс, что-то пошло не так. Начни поиск заново командой /start")
     else:
@@ -146,6 +169,7 @@ def start_search_handler(callback_query):
             bot.reply_to(callback_query.message,
                          f'Ого!😳 С такими жесткими фильтрами не нашлось ни одного маршрута...\n\nПопробуем что-то поменять?',
                          reply_markup=markup)
+            sql_users.delete_airports(callback_query.message.chat.id)
         else:
             users_state[callback_query.message.chat.id].best_in_price = iter(best_routes_price)
             users_state[callback_query.message.chat.id].best_in_time = iter(best_routes_time)
@@ -186,11 +210,14 @@ def start_search_handler(callback_query):
             bot.reply_to(callback_query.message,
                          f'💰<b>Самый дешевый</b>\n💸Цена за все перелёты: {suggested_by_price.total_price()}₽\n\n{all_route_cheap}\n\n⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()} мин\n\n{all_route_fast}',
                          reply_markup=markup, parse_mode="HTML")
+            sql_users.delete_airports(callback_query.message.chat.id)
+
 
 @bot.callback_query_handler(lambda callback_query: callback_query.data == "show_next_cheap_flight")
 def start_search_handler(callback_query):
     try:
         users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_MORE_TICKETS
+        sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
     except:
         bot.send_message(callback_query.message.chat.id,
                              "Упс, что-то пошло не так. Начни поиск заново командой /start")
@@ -230,6 +257,7 @@ def start_search_handler(callback_query):
 def start_search_handler(callback_query):
     try:
         users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_MORE_TICKETS
+        sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
     except:
         bot.send_message(callback_query.message.chat.id,
                                  "Упс, что-то пошло не так. Начни поиск заново командой /start")
@@ -267,11 +295,14 @@ def start_search_handler(callback_query):
 
 @bot.callback_query_handler(lambda callback_query: callback_query.data == "compute_route")
 def compute_route_handler(callback_query):
-    users_state[callback_query.message.chat.id] = UserState()
+    if callback_query.message.chat.id not in users_state:
+        users_state[callback_query.message.chat.id] = UserState(callback_query.message.chat.id)
     users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_HOME
+    sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
     bot.reply_to(callback_query.message, "Напиши название города отправления. Например - Москва или Санкт-Петербург.")
 
-@bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_HOME)
+# @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_HOME)
+@bot.message_handler(func=lambda message: (message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_HOME) or sql_users.get_user_state(message.from_user.id) == int(UserStates.WAIT_FOR_HOME))
 def home_handler(message):
     home = message.text
     answer = CheckData().check_city(home)
@@ -279,16 +310,19 @@ def home_handler(message):
     # TODO: Чекнуть, если дано название(город) аэропорта, то получить код аэропорта через API aviasales, чтобы Москва стала MOW, например.
         users_state[message.chat.id].search_request_data.append_home(home)
         users_state[message.chat.id].state = UserStates.WAIT_FOR_DATA_HOME_DEPARTURE
+        sql_users.update_user_state(message.chat.id, users_state[message.chat.id].state)
         bot.send_message(message.chat.id, text="Напиши дату вылета в формате `YYYY.MM.DD` или период в формате `YYYY.MM.DD - YYYY.MM.DD`")
     else:
         bot.send_message(message.chat.id, text="Название города указано с ошибками, проверь правописание и напиши еще раз в И.П. с заглавной буквы")
 
-@bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_DATA_HOME_DEPARTURE)
+# @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_DATA_HOME_DEPARTURE)
+@bot.message_handler(func=lambda message: (message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_DATA_HOME_DEPARTURE) or sql_users.get_user_state(message.from_user.id) == int(UserStates.WAIT_FOR_DATA_HOME_DEPARTURE))
 def period_for_home_departure_handler(message):
     period_or_date = message.text
     answer_bool = users_state[message.chat.id].search_request_data.set_start_date(period_or_date)
     if answer_bool == True:
         users_state[message.chat.id].state = UserStates.WAIT_FOR_CIRCLE_OR_NOT
+        sql_users.update_user_state(message.chat.id, users_state[message.chat.id].state)
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton('Кольцевой', callback_data='circle'))
         markup.add(types.InlineKeyboardButton('В один конец', callback_data='one_way'))
@@ -302,6 +336,8 @@ def period_for_home_departure_handler(message):
 def circle_handler(callback_query):
     try:
         users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_FINISH_DEPARTURE
+        sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
+
     except KeyError:
         bot.send_message(callback_query.message.chat.id, "Упс, что-то пошло не так. Начни поиск заново командой /start")
     else:
@@ -313,12 +349,14 @@ def one_way_handler(callback_query):
     # users_state[callback_query.message.chat_id].search_request_data.append_circle(False)
     try:
         users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_FINISH_AIRPORT
+        sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
     except KeyError:
         bot.send_message(callback_query.message.chat.id, "Упс, что-то пошло не так. Начни поиск заново командой /start")
     else:
         bot.reply_to(callback_query.message, "Напиши конечный город назначения. Модель сама определит доступные аэропорта для него.")
 
-@bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_FINISH_AIRPORT)
+# @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_FINISH_AIRPORT)
+@bot.message_handler(func=lambda message: (message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_FINISH_AIRPORT) or sql_users.get_user_state(message.from_user.id) == int(UserStates.WAIT_FOR_FINISH_AIRPORT))
 def finish_airport_handler(message):
     airport = message.text
     answer = CheckData().check_city(airport)
@@ -327,6 +365,7 @@ def finish_airport_handler(message):
         answer = users_state[message.chat.id].search_request_data.append_finish_airport(airport)
         if answer == True:
             users_state[message.chat.id].state = UserStates.WAIT_FOR_FINISH_DEPARTURE
+            sql_users.update_user_state(message.chat.id, users_state[message.chat.id].state)
             bot.send_message(message.chat.id, text="Напиши дату последнего полета в формате `YYYY.MM.DD` или период в формате `YYYY.MM.DD - YYYY.MM.DD`")
         else:
             markup = types.InlineKeyboardMarkup()
@@ -337,12 +376,14 @@ def finish_airport_handler(message):
     else:
         bot.send_message(message.chat.id, text="Название города указано с ошибками, проверь правописание и напиши еще раз в И.П. с заглавной буквы")
 
-@bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_FINISH_DEPARTURE)
+# @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_FINISH_DEPARTURE)
+@bot.message_handler(func=lambda message: (message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_FINISH_DEPARTURE) or sql_users.get_user_state(message.from_user.id) == int(UserStates.WAIT_FOR_FINISH_DEPARTURE))
 def finish_date_or_period_handler(message):
     date_or_period = message.text
     answer = users_state[message.chat.id].search_request_data.append_date_or_period_to_finish(date_or_period)
     if answer == True:
         users_state[message.chat.id].state = UserStates.WAIT_FOR_AIRPORT
+        sql_users.update_user_state(message.chat.id, users_state[message.chat.id].state)
         bot.send_message(message.chat.id, text="Выбери город, который хочешь посетить.\nНапоминаю:\nГорода НЕ идут в хронологическом порядке. Модель определяет лучшую комбинацию исходя из фильтров, цены или времени в полёте")
     else:
         bot.send_message(message.chat.id,
@@ -354,16 +395,9 @@ def send_welcome(message):
 
 bot.polling(none_stop=True, interval=0)
 
-#сделай проверку на дату, что первая не больше второй (при периоде) и что это реальная дата, а не число в формате (как сейчас)
-#убери возможность регировать на сообщения или ломаться, если пользоват. пишет, не когда нужно
-#убери или обдумай hate_airl
-#сделай проверку на то что конечный аэропорт не может быть аэропортом вылета в НЕ кольцевом маршруте
-
 #TODO:
 # сделай возможность писать города в хронологическом порядке
 # добавь состояние пользователя в базу.
 # может ли телега дать виджит календаря
 # фиксить дфс
 # глянь api
-
-

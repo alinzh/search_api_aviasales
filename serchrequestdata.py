@@ -2,9 +2,10 @@ import re
 from search import Search
 import air_iata
 import datetime
+import sql_users
 
 class SearchRequestData:
-    def __init__(self):
+    def __init__(self, user_id):
         self.start_date = None
         self.end_date = None
         self.airports = []
@@ -14,9 +15,11 @@ class SearchRequestData:
         self.finish = None
         self.tranzit = []
         self.hate_airl = []
+        self.user_id = user_id
 
     def append_airport(self, airport: str):
         self.airports.append(airport)
+        sql_users.append_airports(self.user_id, airport)
 
     def set_start_date(self, value: str):
         date_pattern = r'\d{4}.\d{2}.\d{2}'
@@ -25,6 +28,8 @@ class SearchRequestData:
         if re.fullmatch(date_pattern, value):
             self.start_date = value
             self.start_period = [value, value]
+            sql_users.append_start_date(self.user_id, value)
+            sql_users.append_start_period(self.user_id, [value, value])
             return True
         elif re.fullmatch(period_pattern, value):
             period_pattern = r'(\d{4}.\d{2}.\d{2})\s*-\s*(\d{4}.\d{2}.\d{2})'
@@ -37,12 +42,12 @@ class SearchRequestData:
                 first_date = match.group(1)
                 second_date = match.group(2)
                 self.start_date = first_date
+                sql_users.append_start_date(self.user_id, first_date)
                 self.start_period = [first_date, second_date]
+                sql_users.append_start_period(self.user_id, [first_date, second_date])
                 return True
         else:
             return False
-        # Проверка, что формат даты `DD/MM/YYYY - DD/MM/YYYY` или `DD/MM/YYYY`. Смотри regular expressions (библиотека re)
-        # И потом разобрать строку на даты и вставить в нужные поля.
 
     def append_time_tranzit(self, value: str):
         '''
@@ -57,11 +62,14 @@ class SearchRequestData:
             days_for_tranzit = match_d.group(1)
             air = self.airports[-1]
             self.tranzit.append((air, int(days_for_tranzit) * 24 * 60))
+            sql_users.append_tranzit(self.user_id, (air, int(days_for_tranzit) * 24 * 60))
             return True
         elif match_h:
             hours_for_tranzit = match_h.group(1)
             air = self.airports[-1]
             self.tranzit.append((air, int(hours_for_tranzit) * 60))
+            sql_users.append_tranzit(self.user_id, (air, int(hours_for_tranzit) * 60))
+
             return True
         else:
             return False
@@ -70,6 +78,7 @@ class SearchRequestData:
         dict_airlines = air_iata.air_iata()
         if airl in dict_airlines:
             self.hate_airl.append(airl)
+            sql_users.append_hate_airl(self.user_id, airl)
             return True
         else:
             return False
@@ -77,15 +86,19 @@ class SearchRequestData:
     def append_home(self, home):
         self.home = str(home)
         self.airports.append(home)
+        sql_users.append_home(self.user_id, home)
+        sql_users.append_airports(self.user_id, home)
 
     def append_circle(self, fact: bool):
         if fact == True:
             self.finish = self.home
-
+            sql_users.append_finish(self.user_id, self.home)
     def append_finish_airport(self, airport):
         if airport != self.home:
             self.finish = str(airport)
             self.airports.append(airport)
+            sql_users.append_finish(self.user_id, airport)
+            sql_users.append_airports(self.user_id, airport)
             return True
         else:
             return False
@@ -101,7 +114,10 @@ class SearchRequestData:
                 return False
             else:
                 self.end_date = value
+                sql_users.append_end_date(self.user_id, value)
                 self.end_period = [value, value]
+                sql_users.append_end_period(self.user_id, [value, value])
+
             return True
         elif re.fullmatch(period_pattern, value):
             match = re.search(r"(\d{4}.\d{2}.\d{2})\s*-\s*(\d{4}.\d{2}.\d{2})", value)
@@ -117,7 +133,9 @@ class SearchRequestData:
                     first_date = match.group(1)
                     second_date = match.group(2)
                     self.end_date = second_date
+                    sql_users.append_end_date(self.user_id, second_date)
                     self.end_period = [first_date, second_date]
+                    sql_users.append_end_period(self.user_id, [first_date, second_date])
                 return True
         else:
             return False
