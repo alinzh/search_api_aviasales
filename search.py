@@ -10,6 +10,8 @@ from route import Route
 import air_iata
 import time
 from datetime import datetime, timedelta
+from itertools import product
+from multiprocessing import Process, Lock
 
 class Search():
 
@@ -107,6 +109,7 @@ class Search():
         r = Route(node, finish, tranzit)
         if r.start == r.finish:
             dfs_circle(graph, node, r)
+
         elif r.start != r.finish:
             dfs_not_circle(graph, node, finish, r)
         return paths
@@ -185,7 +188,6 @@ class Search():
                                     time=data_for_one_flight['departure_at'],
                                     time_in_sky=data_for_one_flight['duration'],
                                     airlines=data_for_one_flight['airline'], link=data_for_one_flight['link'])
-
         all_routes = self.find_paths_of_length(G, home, path_len=(len(airports) + 1), finish=finish, tranzit=tranzit)
         end_time = time.time()
         execution_time = end_time - start_time
@@ -338,3 +340,4 @@ class Search():
         for name_company in airlines:
             iata_airlines.append(dict_airlines[name_company])
         return iata_airlines
+

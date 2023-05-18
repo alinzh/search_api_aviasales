@@ -19,7 +19,6 @@ def create_table_in_database():
         end_period TEXT NOT NULL,
         home TEXT NOT NULL,
         finish TEXT NOT NULL,
-        tranzit TEXT NOT NULL,
         hate_airl TEXT NOT NULL
         
     )
@@ -44,7 +43,7 @@ def add_users_to_sql(new_users):
 
         if existing_user is None:
         # Добавление нового пользователя, если его еще нет в базе данных
-            cursor.execute('INSERT INTO users (user_id, username, full_name, states, start_date, end_date, start_period, end_period, home, finish, tranzit, hate_airl) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', user)
+            cursor.execute('INSERT INTO users (user_id, username, full_name, states, start_date, end_date, start_period, end_period, home, finish, hate_airl) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', user)
             print(f'Added user {user[0]}')
         else:
             print(f'User {user[0]} already exists')
@@ -217,17 +216,43 @@ def append_home(user_id, home):
 def append_tranzit(user_id, tranzit):
     conn = sqlite3.connect('mydatabase.db')
     cursor = conn.cursor()
-    # Проверяем, существует ли пользователь с указанным user_id в базе данных
+
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users_tranzit'")
+    table_exists = cursor.fetchone()
+
+    if not table_exists:
+        cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users_tranzit (
+                    user_id INTEGER,
+                    airport TEXT,
+                    duration TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users (user_id)
+                )
+            ''')
+        conn.commit()
+    airport = tranzit[0]
+    duration = tranzit[1]
+
+    # Проверяем, существует ли пользователь с указанным user_id в таблице users
     cursor.execute('SELECT * FROM users WHERE user_id=?', (user_id,))
     existing_user = cursor.fetchone()
 
-    if existing_user is not None:
-        # Обновляем состояние пользователя
-        cursor.execute('UPDATE users SET tranzit=? WHERE user_id=?', (str(tranzit), user_id))
-        print(f'Updated state for user {user_id}')
+    if existing_user:
+        cursor.execute('SELECT * FROM users_tranzit WHERE user_id=? AND airport=? AND duration=?', (user_id, airport, duration))
+        existing_entry = cursor.fetchone()
+
+        if not existing_entry:
+            # Добавляем новую запись в таблицу users_tranzit
+            cursor.execute('INSERT INTO users_tranzit (user_id, airport, duration) VALUES (?, ?, ?)', (user_id, airport, duration))
+            conn.commit()
+            print(f'Added tranzit in airport {airport}, duration for tranzit is {duration}min for user {user_id}')
+        else:
+            print(f'Added tranzit in airport {airport}, duration for tranzit is {duration}min for user {user_id}')
     else:
         print(f'User {user_id} does not exist')
-    conn.commit()
+
+    # Закрытие соединения с базой данных
+    cursor.close()
     conn.close()
 
 def append_finish(user_id, finish):
@@ -255,7 +280,7 @@ def append_hate_airl(user_id, hate_air):
 
     if existing_user is not None:
         # Обновляем состояние пользователя
-        cursor.execute('UPDATE users SET hate_air=? WHERE user_id=?', (str(hate_air), user_id))
+        cursor.execute('UPDATE users SET hate_airl=? WHERE user_id=?', (str(hate_air), user_id))
         print(f'Updated state for user {user_id}')
     else:
         print(f'User {user_id} does not exist')
@@ -308,11 +333,55 @@ def get_all_data_from_table():
 
     return result
 
+def get_all_data_from_users_airport():
+    conn = sqlite3.connect('mydatabase.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM user_airports")
+    result = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return result
+
+def get_all_data_from_users_tranzit():
+    conn = sqlite3.connect('mydatabase.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM users_tranzit")
+    result = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return result
+
 def delete_airports(user_id):
     conn = sqlite3.connect('mydatabase.db')
     cursor = conn.cursor()
 
     cursor.execute("DELETE FROM user_airports WHERE user_id=?", (user_id,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+def delete_tranzit(user_id):
+
+    conn = sqlite3.connect('mydatabase.db')
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM users_tranzit WHERE user_id=?", (user_id,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+def delete_user(user_id):
+
+    conn = sqlite3.connect('mydatabase.db')
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM users WHERE user_id=?", (user_id,))
     conn.commit()
 
     cursor.close()

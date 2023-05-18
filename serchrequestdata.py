@@ -74,6 +74,7 @@ class SearchRequestData:
         else:
             return False
 
+
     def append_hate_airl(self, airl: str):
         dict_airlines = air_iata.air_iata()
         if airl in dict_airlines:
@@ -88,6 +89,7 @@ class SearchRequestData:
         self.airports.append(home)
         sql_users.append_home(self.user_id, home)
         sql_users.append_airports(self.user_id, home)
+
 
     def append_circle(self, fact: bool):
         if fact == True:
@@ -139,6 +141,25 @@ class SearchRequestData:
                 return True
         else:
             return False
+
+    def append_start_date_exception_sql(self, date):
+        self.start_date = date
+    def append_home_exception_sql(self, home):
+        self.home = str(home)
+    def append_time_tranzit_exception_sql(self, value):
+        self.tranzit.append(value)
+    def append_finish_exception_sql(self, value):
+        self.finish = value
+
+    def append_start_period_exception_sql(self, value):
+        self.start_period = value
+
+    def append_end_period_exception_sql(self, value):
+        self.end_period = value
+    def append_end_date_exception_sql(self, value):
+        self.end_date = value
+    def append_hate_airl_exception_sql(self, value):
+        self.hate_airl = value
 
     def start(self):
         return self.start_date, self.end_date, self.airports, self.start_period, self.end_period, self.home, self.finish, self.tranzit, self.hate_airl
