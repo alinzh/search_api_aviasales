@@ -6,6 +6,7 @@ from serchrequestdata import SearchRequestData
 from check_answer import CheckData
 import sql_users
 from enum import IntEnum
+import text_for_send_message_bot
 
 if __name__ == "__main__":
         bot = telebot.TeleBot("6182172702:AAE-aoQSvCTuyIWKv6zCrXMDM4CB6sYbJtY", parse_mode=None)
@@ -87,23 +88,9 @@ if __name__ == "__main__":
         def send_welcome(message):
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton('Начать поиск', callback_data='compute_route'))
-            bot.reply_to(message, "Привет!👋\n\
-        Я — бот, поисковик авиабилетов, который умеет искать с более гибкими фильтрами чем aviasales. Я умею строить сложные маршруты с гибкими датами и находить оптимальную последовательность пунктов маршрута.\
-        \n\nЯ могу тебе помочь👇\
-        \n— построить маршрут из большого кол-ва городов\
-        \n— найти самую дешевую последовательность городов в маршруте\
-        \n— направить тебе самые быстрые или самые дешевые варианты маршрутов\n\n\
-        Ты можешь указать👇\
-        \n— возвратный или нет маршрут\
-        \n— города, которые будут использованы в построении маршрута\
-        \n— период вылета и прилета (плавающая дата или точная)\
-        \n— пересадку в конкретном городе (в днях или часах — на выбор), по умолчанию — от 60 мин\
-        \n— авиакомпании, которые не следует включать в маршрут\n\n\
-        🙏🏻Моя миссия:\n\
-        Помогать путешественникам находить самые оптимальные вариантов маршрута без долгого и утомительного поиска вручную. Со мной тебе достаточно единажды ввести все желаемые параметры и выбрать лучший маршрут из тех, что я предложу.\
-        \n\nP.S.\n\
-        Не переживай, если в случае большого диапазона дат или большого кол-ва городов я стану строить маршруты долго. Иногда, в особо объемных случаях, я могу работать больше 1 минуты. За это время ты можешь выйти и поскроллить ленту, а потом — вернуться. Главное, не выключай уведомления😉", reply_markup=markup, parse_mode="Markdown")
+            bot.reply_to(message, text = text_for_send_message_bot.message_hello(), reply_markup=markup, parse_mode="Markdown")
             sql_users.add_users_to_sql([(message.from_user.id, message.from_user.username, message.from_user.full_name, 0, '', '', '', '', '', '', '[]')])
+            sql_users.users_all_the_time(message.from_user.id, message.from_user.username, message.from_user.full_name)
         @bot.callback_query_handler(lambda callback_query: callback_query.data == "compute_route")
         def compute_route_handler(callback_query):
             users_state[callback_query.message.chat.id] = UserState(callback_query.message.chat.id) #экземпляр класса UserState() создается тут!!
@@ -189,22 +176,32 @@ if __name__ == "__main__":
             else:
                 bot.send_message(message.chat.id, text="Название авиакомпании написано некорректно. Попробуй еще раз, пиши с заглавной буквы.\nЕсли сомневаешься - посмотри официальное название авиакомпании, например:\n'Ред Вингс' или 'Северный Ветер (Nordwind Airlines)'")
 
+
         @bot.callback_query_handler(lambda callback_query: callback_query.data == "start_search")
         def start_search_handler(callback_query):
             try:
                 users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_END
-                sql_users.update_user_state(callback_query.message.chat.id, users_state[callback_query.message.chat.id].state)
+                sql_users.update_user_state(callback_query.message.chat.id,
+                                            users_state[callback_query.message.chat.id].state)
             except:
-                bot.send_message(callback_query.message.chat.id, "Упс, что-то пошло не так. Начни поиск заново командой /start")
+                bot.send_message(callback_query.message.chat.id,
+                                 "Упс, что-то пошло не так. Начни поиск заново командой /start")
             else:
                 sr = Search()
-                start_date, end_date, airports,start_period, end_period, home, finish, tranzit, hate_airl = users_state[callback_query.message.chat.id].search_request_data.start()
-                _, all_routes = sr.compute_all_routes(start_date, end_date, airports,start_period, end_period, home, finish, tranzit, hate_airl)
+                start_date, end_date, airports, start_period, end_period, home, finish, tranzit, hate_airl = \
+                users_state[callback_query.message.chat.id].search_request_data.start()
+                bot.send_message(callback_query.message.chat.id,
+                                 text=text_for_send_message_bot.message_search_began_wait(home, finish, start_period,
+                                                                                          end_period, airports, tranzit,
+                                                                                          hate_airl))
+                _, all_routes = sr.compute_all_routes(start_date, end_date, airports, start_period, end_period, home,
+                                                      finish, tranzit, hate_airl)
                 best_routes_price, _ = sr.find_cheapest_route(all_routes)
                 best_routes_time, _ = sr.find_short_in_time_route(all_routes)
                 if best_routes_price == [] and best_routes_time == []:
                     markup = types.InlineKeyboardMarkup()
-                    markup.add(types.InlineKeyboardButton('Попробовать другие параметры поиска!', callback_data='compute_route'))
+                    markup.add(types.InlineKeyboardButton('Попробовать другие параметры поиска!',
+                                                          callback_data='compute_route'))
                     bot.reply_to(callback_query.message,
                                  f'Ого!😳 С такими жесткими фильтрами не нашлось ни одного маршрута...\n\nПопробуем что-то поменять?',
                                  reply_markup=markup)
@@ -220,42 +217,13 @@ if __name__ == "__main__":
                     markup.add(types.InlineKeyboardButton('Начать новый поиск!', callback_data='compute_route'))
                     suggested_by_price = next(users_state[callback_query.message.chat.id].best_in_price)
                     suggested_by_time = next(users_state[callback_query.message.chat.id].best_in_time)
-                    all_route_cheap = f''
-                    for idx, flight in enumerate(suggested_by_price.storage):
-                        number = (idx + 1)
-                        first_airport = flight[0]
-                        second_airport = flight[1]
-                        dict_with_data = flight[2]
-                        price = dict_with_data['weight']
-                        departure = dict_with_data['time']
-                        airline = dict_with_data['airlines']
-                        time_in_sky = dict_with_data['time_in_sky']
-                        link = f"https://www.aviasales.ru{dict_with_data['link']}"
-                        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky}\'' \
-                                f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
-                        all_route_cheap += route
-                    all_route_fast = f''
-                    for idx, flight in enumerate(suggested_by_time.storage):
-                        number = (idx + 1)
-                        first_airport = flight[0]
-                        second_airport = flight[1]
-                        dict_with_data = flight[2]
-                        price = dict_with_data['weight']
-                        departure = dict_with_data['time']
-                        airline = dict_with_data['airlines']
-                        time_in_sky = dict_with_data['time_in_sky']
-                        link = f"https://www.aviasales.ru{dict_with_data['link']}"
-                        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky}\'' \
-                                f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
-                        all_route_fast += route
+
                     bot.reply_to(callback_query.message,
-                                 f'💰<b>Самый дешевый</b>\n💸Цена за все перелёты: {suggested_by_price.total_price()}₽\n\n{all_route_cheap}\n\n⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()} мин\n\n{all_route_fast}',
+                                 text=text_for_send_message_bot.answer_with_tickets_for_user(suggested_by_price, suggested_by_time),
                                  reply_markup=markup, parse_mode="HTML")
                     sql_users.delete_airports(callback_query.message.chat.id)
                     sql_users.delete_tranzit(callback_query.message.chat.id)
                     sql_users.delete_user(callback_query.message.chat.id)
-
-
 
         @bot.callback_query_handler(lambda callback_query: callback_query.data == "show_next_cheap_flight")
         def start_search_handler(callback_query):
@@ -279,22 +247,9 @@ if __name__ == "__main__":
                     markup.add(types.InlineKeyboardButton('Еще дешевых', callback_data='show_next_cheap_flight'))
                     markup.add(types.InlineKeyboardButton('Еще быстрых', callback_data='show_next_fast_flight'))
                     markup.add(types.InlineKeyboardButton('Начать новый поиск!', callback_data='compute_route'))
-                    all_route_cheap = f''
-                    for idx, flight in enumerate(suggested_by_price.storage):
-                        number = (idx + 1)
-                        first_airport = flight[0]
-                        second_airport = flight[1]
-                        dict_with_data = flight[2]
-                        price = dict_with_data['weight']
-                        departure = dict_with_data['time']
-                        airline = dict_with_data['airlines']
-                        time_in_sky = dict_with_data['time_in_sky']
-                        link = f"https://www.aviasales.ru{dict_with_data['link']}"
-                        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky}\'' \
-                                f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
-                        all_route_cheap += route
+
                     bot.reply_to(callback_query.message,
-                                 f'💰<b>Самый дешевый</b>\n💸Цена за все перелёты: {suggested_by_price.total_price()}₽\n\n{all_route_cheap}\n',
+                                 text=text_for_send_message_bot.message_answer_tickets_more_cheap(suggested_by_price),
                                  reply_markup=markup, parse_mode='HTML')
 
         @bot.callback_query_handler(lambda callback_query: callback_query.data == "show_next_fast_flight")
@@ -319,22 +274,9 @@ if __name__ == "__main__":
                     markup.add(types.InlineKeyboardButton('Еще дешевых', callback_data='show_next_cheap_flight'))
                     markup.add(types.InlineKeyboardButton('Еще быстрых', callback_data='show_next_fast_flight'))
                     markup.add(types.InlineKeyboardButton('Начать новый поиск!', callback_data='compute_route'))
-                    all_route_fast = f''
-                    for idx, flight in enumerate(suggested_by_time.storage):
-                        number = (idx + 1)
-                        first_airport = flight[0]
-                        second_airport = flight[1]
-                        dict_with_data = flight[2]
-                        price = dict_with_data['weight']
-                        departure = dict_with_data['time']
-                        airline = dict_with_data['airlines']
-                        time_in_sky = dict_with_data['time_in_sky']
-                        link = f"https://www.aviasales.ru{dict_with_data['link']}"
-                        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky} мин\'' \
-                                f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
-                        all_route_fast += route
+
                     bot.reply_to(callback_query.message,
-                                         f'⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()}мин\n\n{all_route_fast}',
+                                         text=text_for_send_message_bot.message_answer_tickets_more_short(suggested_by_time),
                                  reply_markup=markup, parse_mode="HTML")
 
         @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[message.chat.id].state == UserStates.WAIT_FOR_HOME)

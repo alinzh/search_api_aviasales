@@ -86,8 +86,8 @@ def parallel_dfs(graph, airport, finish, path, visited, path_len, circle_or_not 
     else:
         target = worker_circle
     neighbours = graph.neighbors(airport)
-    task_queue = multiprocessing.Manager().Queue()
-    done_queue = multiprocessing.Manager().Queue()
+    task_queue = multiprocessing.Queue()
+    done_queue = multiprocessing.Queue()
     # создает очередь
     processes = []
 

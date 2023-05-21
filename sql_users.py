@@ -92,6 +92,41 @@ def update_user_state(user_id, new_state):
     conn.commit()
     conn.close()
 
+
+def users_all_the_time(user_id, username, full_name):
+    conn = sqlite3.connect('mydatabase.db')
+    cursor = conn.cursor()
+
+    # Проверяем, существует ли таблица users_all_the_time
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users_all_the_time'")
+    table_exists = cursor.fetchone()
+
+    if not table_exists:
+        # Создаем таблицу users_all_the_time, если она не существует
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users_all_the_time (
+                user_id INTEGER,
+                username TEXT NOT NULL,
+                full_name TEXT NOT NULL
+            )
+        ''')
+        conn.commit()
+
+    cursor.execute('SELECT * FROM users_all_the_time WHERE user_id=?', (user_id,))
+    existing_entry = cursor.fetchone()
+
+    if not existing_entry:
+        # Добавляем новую запись в таблицу users_all_the_time
+        cursor.execute('INSERT INTO users_all_the_time (user_id, username, full_name) VALUES (?, ?, ?)',
+                       (user_id, username, full_name))
+        conn.commit()
+        print(f'Added user {user_id}, username {username}')
+    else:
+        print(f'Already added')
+
+    # Закрытие соединения с базой данных
+    cursor.close()
+    conn.close()
 def append_airports(user_id, airports):
     conn = sqlite3.connect('mydatabase.db')
     cursor = conn.cursor()
