@@ -14,7 +14,28 @@ from itertools import product
 import multiprocessing
 import os
 
-def dfs_not_circle(graph, airport, finish, path: Route, visited, paths, path_len=3):
+def dfs_circle(graph, airport, path: Route, visited, paths, path_len):
+            for neighbor in graph.neighbors(airport):
+
+                flights = []  # TODO: забрать edges между airport и neighbor из графа
+                # flights = G.get_edge_data(airport, neighbor, data=True)
+                for u, v, d in graph.edges(data=True):
+                    if u == airport and v == neighbor:
+                        flights.append([airport, neighbor, d])
+                for flight in flights:
+                    path_copy = copy.deepcopy(path)
+                    success = path_copy.append(flight)
+                    if success:
+                        if len(path_copy) == path_len - 1 and path_copy.start == neighbor:
+                            paths.append(path_copy)
+                        elif neighbor not in visited:
+                            visited[neighbor] = True
+                            dfs_circle(graph, airport, path_copy, visited, paths, path_len)
+                            visited.pop(neighbor)
+            return paths
+
+
+def dfs_not_circle(graph, airport, finish, path: Route, visited, paths, path_len):
     for neighbor in graph.neighbors(airport):
         if len(path) != path_len - 3 and neighbor == finish:
             continue
@@ -30,34 +51,50 @@ def dfs_not_circle(graph, airport, finish, path: Route, visited, paths, path_len
                     paths.append(path_copy)
                 elif neighbor not in visited:
                     visited[neighbor] = True
-                    dfs_not_circle(graph, neighbor, finish, path_copy, visited, paths, path_len)
+                    dfs_not_circle(graph,  neighbor, finish, path_copy, visited, paths, path_len)
                     visited.pop(neighbor)
 
     return paths
-
-def worker(queue, done_queue, path, G, visited, finish, path_len):
+def worker_circle(queue, done_queue, path, G, visited, finish, path_len, home):
     while True:
         neighbor = queue.get()  # получает следующую задачу из очереди
-        # print(os.getpid(), neighbor, hex(id(path)))
+        print(os.getpid(), neighbor, hex(id(path)))
         if neighbor is None or neighbor == finish:
             break  # если None, завершит работу
         path_copy = copy.deepcopy(path)  # заменить path.copy() на path
-        path_copy.append(('MOW', neighbor, ([G.get_edge_data('MOW', neighbor)[0]])[0]))
-        paths = dfs_not_circle(G, neighbor, finish, path_copy, visited, [], path_len)
-        done_queue.put(paths)  # помещаем результаты в очередь
+        edges_from_first_to_neighbor = [(G.get_edge_data(home, neighbor))[i] for i in G.get_edge_data(home, neighbor)]
+        for edge_between_first_and_neighbor in edges_from_first_to_neighbor:
+            path_copy.append((home, neighbor, edge_between_first_and_neighbor))
+            paths = dfs_circle(G, neighbor, path_copy, copy.deepcopy(visited), [], path_len)
+            done_queue.put(paths)  # помещаем результаты в очередь
+def worker_not_circle(queue, done_queue, path, G, visited, finish, path_len, home):
+    while True:
+        neighbor = queue.get()  # получает следующую задачу из очереди
+        print(os.getpid(), neighbor, hex(id(path)))
+        if neighbor is None or neighbor == finish:
+            break  # если None, завершит работу
+        path_copy = copy.deepcopy(path)  # заменить path.copy() на path
+        edges_from_first_to_neighbor = [(G.get_edge_data(home, neighbor))[i] for i in G.get_edge_data(home, neighbor)]
+        for edge_between_first_and_neighbor in edges_from_first_to_neighbor:
+            path_copy.append((home, neighbor, edge_between_first_and_neighbor))
+            paths = dfs_not_circle(G, neighbor, finish, path_copy, visited, [], (path_len))
+            done_queue.put(paths)  # помещаем результаты в очередь
 
-def parallel_dfs(graph, airport, finish, path, visited, path_len):
-
+def parallel_dfs(graph, airport, finish, path, visited, path_len, circle_or_not ):
+    if circle_or_not == False:
+        target = worker_not_circle
+    else:
+        target = worker_circle
     neighbours = graph.neighbors(airport)
-    task_queue = multiprocessing.Queue()
-    done_queue = multiprocessing.Queue()
+    task_queue = multiprocessing.Manager().Queue()
+    done_queue = multiprocessing.Manager().Queue()
     # создает очередь
     processes = []
 
     for neighbour in neighbours:  # помещаем соседей в очередь
         task_queue.put(neighbour)
     for i in range(2):  # запускаем 2 процесса параллельных
-        process = multiprocessing.Process(target=worker, args=(task_queue, done_queue, path, graph, visited, finish, path_len))
+        process = multiprocessing.Process(target=target, args=(task_queue, done_queue, copy.deepcopy(path), graph, visited, finish, path_len, airport))
         process.start()
         processes.append(process)
     for i in range(2):
@@ -209,11 +246,10 @@ class Search():
         # Организовать передачу элемента из очереди в свобовдный поток
         # Отключить потоки и выйти из фнукции, когда все neighbours обработаны (очередь пустая)
         r = Route(home, finish, tranzit)
-        # if r.start == r.finish:
-        #     dfs_circle(graph, node, r)
-
+        if r.start == r.finish:
+            paths = parallel_dfs(graph, home, finish, r, visited, path_len, True)
         if r.start != r.finish:
-             paths = parallel_dfs(graph, home, finish, r, visited, path_len)
+            paths = parallel_dfs(graph, home, finish, r, visited, path_len, False)
         return paths
 
 
@@ -443,7 +479,7 @@ class Search():
             iata_airlines.append(dict_airlines[name_company])
         return iata_airlines
 
-if __name__ == '__main__':
-    multiprocessing.freeze_support()
-    sr = Search()
-    _, all_routes = sr.compute_all_routes('2023.06.01', '2023.06.10', ['Москва', 'Томск', 'Казань', 'Новосибирск'], ['2023.06.01', '2023.06.01'], ['2023.06.06', '2023.06.06'], 'Москва', 'Томск', [], [])
+# if __name__ == '__main__':
+#     multiprocessing.freeze_support()
+#     sr = Search()
+#     _, all_routes = sr.compute_all_routes('2023.06.01', '2023.06.10', ['Москва', 'Томск', 'Казань', 'Новосибирск'], ['2023.06.01', '2023.06.01'], ['2023.06.10', '2023.06.10'], 'Москва', 'Москва', [], [])
