@@ -20,7 +20,7 @@ def message_search_began_wait(home, finish, start_period, end_period, citys, tra
         start_period = start_period[0]
     else:
         start_p = start_period.copy()
-        end_period = str(start_p[0]) + ' - ' + str(start_p[1])
+        start_period = str(start_p[0]) + ' - ' + str(start_p[1])
     citys_str = ''
     for city in citys:
         citys_str += city + ', '

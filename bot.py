@@ -9,7 +9,7 @@ from enum import IntEnum
 import text_for_send_message_bot
 
 if __name__ == "__main__":
-        bot = telebot.TeleBot("6182172702:AAE-aoQSvCTuyIWKv6zCrXMDM4CB6sYbJtY", parse_mode=None)
+        bot = telebot.TeleBot("6236358716:AAHIamfdtsvVhFHKneXurbuXQ0r_3n3cLH8", parse_mode=None)
 
         # Хранилище флагов, что вводят юзеры (тут все, кто в данный момент что-то вводит)
         users_state = {}
@@ -83,7 +83,6 @@ if __name__ == "__main__":
             user_id = string[0]
             users_state[user_id].search_request_data.append_time_tranzit_exception_sql((string[1], int(string[2])))
 
-
         @bot.message_handler(commands=['start'])
         def send_welcome(message):
             markup = types.InlineKeyboardMarkup()
@@ -105,7 +104,8 @@ if __name__ == "__main__":
             airport = message.text
             answer = CheckData().check_city(airport)
             answer_2 = CheckData().check_if_city_in_route(airport, users_state[message.chat.id].search_request_data.airports)
-            if (answer == True) and (answer_2 == True):
+            check_on_len_route = CheckData().check_quantity_of_citys(users_state[message.chat.id].search_request_data.airports, users_state[message.chat.id].search_request_data.home, users_state[message.chat.id].search_request_data.finish)
+            if (answer == True) and (answer_2 == True) and (check_on_len_route == True):
             # TODO: Чекнуть, если дано название(город) аэропорта, то получить код аэропорта через API aviasales, чтобы Москва стала MOW, например.
                 users_state[message.chat.id].search_request_data.append_airport(airport)
                 users_state[message.chat.id].state = UserStates.WAIT_FOR_TRANSIT_PERIOD
@@ -115,6 +115,11 @@ if __name__ == "__main__":
                 bot.send_message(message.chat.id, text="🕘Напиши минимальный период транзита через этот город. \n\n<i>Пиши в формате дней, например - '5д', либо в формате часов, например - '10ч'.</i>",reply_markup=markup, parse_mode="HTML")
             elif answer != True:
                 bot.send_message(message.chat.id, text="⚠️Название города указано с ошибками, проверь правописание и напиши еще раз в И.П. с заглавной буквы.")
+            elif check_on_len_route != True:
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
+                markup.add(types.InlineKeyboardButton('Выбрать нежеланные авиакомпании', callback_data='hate_airl'))
+                bot.send_message(message.chat.id, text="⚠️Лимит на количество городов исчерпан. \nНачнем поиск?", reply_markup = markup)
             else:
                 bot.send_message(message.chat.id, text="⚠️Этот город уже добавлен в маршрут. Выбери другой.")
         @bot.callback_query_handler(lambda callback_query: callback_query.data == "skeep_tranzit")
@@ -348,10 +353,16 @@ if __name__ == "__main__":
         def finish_date_or_period_handler(message):
             date_or_period = message.text
             answer = users_state[message.chat.id].search_request_data.append_date_or_period_to_finish(date_or_period)
+            check_duration = None
             if answer == True:
+                check_duration = CheckData().check_period_duration(users_state[message.chat.id].search_request_data.start_date, users_state[message.chat.id].search_request_data.end_date)
+            if (answer == True) and (check_duration == True):
                 users_state[message.chat.id].state = UserStates.WAIT_FOR_AIRPORT
                 sql_users.update_user_state(message.chat.id, users_state[message.chat.id].state)
                 bot.send_message(message.chat.id, text="Напиши название города, который хочешь посетить.\n\n<i>☝️Города НЕ идут в хронологическом порядке. Модель определяет лучшую комбинацию исходя из фильтров, цены или времени в полёте.</i>", parse_mode="HTML")
+            elif check_duration == False:
+                bot.send_message(message.chat.id,
+                                 text="⚠️Указан недопустимый период, от начала до завершения маршрута должно быть не более 21 дня. \n\nУкажите дату или период, чтобы диапазон от даты первого вылета был не более 3 недель.")
             else:
                 bot.send_message(message.chat.id,
                                  text="⚠️Дата или период в неверном формате, напиши ее, как в примере:\n- точная дата `YYYY.MM.DD` \n- период `YYYY.MM.DD - YYYY.MM.DD`")

@@ -69,7 +69,6 @@ class Search():
             for neighbor in graph.neighbors(airport):
 
                 flights = []  # TODO: забрать edges между airport и neighbor из графа
-                # flights = G.get_edge_data(airport, neighbor, data=True)
                 for u, v, d in G.edges(data=True):
                     if u == airport and v == neighbor:
                         flights.append([airport, neighbor, d])
