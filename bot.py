@@ -9,7 +9,7 @@ from enum import IntEnum
 import text_for_send_message_bot
 
 if __name__ == "__main__":
-        bot = telebot.TeleBot("6182172702:AAE-aoQSvCTuyIWKv6zCrXMDM4CB6sYbJtY", parse_mode=None)
+        bot = telebot.TeleBot("6182172702:AAE-aoQSvCTuyIWKv6zCrXMDM4CB6sYbJtY", parse_mode=None )
 
         # Хранилище флагов, что вводят юзеры (тут все, кто в данный момент что-то вводит)
         users_state = {}
