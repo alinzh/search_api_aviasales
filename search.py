@@ -11,121 +11,12 @@ import air_iata
 import time
 from datetime import datetime, timedelta
 from itertools import product
-import multiprocessing
-import os
-import threading
-
-
-visited_lock = multiprocessing.Lock()
-def dfs_circle(graph, airport, path: Route, visited, paths, path_len):
-            for neighbor in graph.neighbors(airport):
-
-                flights = []  # TODO: забрать edges между airport и neighbor из графа
-                # flights = G.get_edge_data(airport, neighbor, data=True)
-                for u, v, d in graph.edges(data=True):
-                    if u == airport and v == neighbor:
-                        flights.append([airport, neighbor, d])
-                for flight in flights:
-                    path_copy = copy.deepcopy(path)
-                    success = path_copy.append(flight)
-                    if success:
-                        if len(path_copy) == path_len - 1 and path_copy.start == neighbor:
-                            paths.append(path_copy)
-                        elif neighbor not in visited:
-                            visited[neighbor] = True
-                            dfs_circle(graph, airport, path_copy, visited, paths, path_len)
-                            visited.pop(neighbor)
-            return paths
-
-
-def dfs_not_circle(graph, airport, finish, path: Route, visited, paths, path_len):
-    for neighbor in graph.neighbors(airport):
-        if len(path) != path_len - 3 and neighbor == finish:
-            continue
-        flights = []  # TODO: забрать edges между airport и neighbor из графа
-        for u, v, d in graph.edges(data=True):
-            if u == airport and v == neighbor:
-                flights.append([airport, neighbor, d])
-        for flight in flights:
-            path_copy = copy.deepcopy(path)
-            success = path_copy.append(flight)
-            if success:
-                if len(path_copy) == path_len - 2 and path_copy.finish == neighbor:
-                    paths.append(path_copy)
-                elif neighbor not in visited:
-                    visited[neighbor] = True
-                    dfs_not_circle(graph, neighbor, finish, path_copy, visited, paths, path_len)
-                    dfs_not_circle(graph,  neighbor, finish, path_copy, visited, paths, path_len)
-                    visited.pop(neighbor)
-
-    return paths
-def worker_circle(queue, done_queue, path, G, visited, finish, path_len, home):
-    while True:
-        neighbor = queue.get()  # получает следующую задачу из очереди
-        print(os.getpid(), neighbor, hex(id(path)))
-        if neighbor is None or neighbor == finish:
-            break  # если None, завершит работу
-        path_copy = copy.deepcopy(path)  # заменить path.copy() на path
-        edges_from_first_to_neighbor = [(G.get_edge_data(home, neighbor))[i] for i in G.get_edge_data(home, neighbor)]
-        for edge_between_first_and_neighbor in edges_from_first_to_neighbor:
-            path_copy.append((home, neighbor, edge_between_first_and_neighbor))
-            paths = dfs_circle(G, neighbor, path_copy, copy.deepcopy(visited), [], path_len)
-            done_queue.put(paths)  # помещаем результаты в очередь
-def worker_not_circle(queue, done_queue, path, G, visited, finish, path_len, home):
-    while True:
-        neighbor = queue.get()  # получает следующую задачу из очереди
-        print(os.getpid(), neighbor, hex(id(path)))
-        if neighbor is None or neighbor == finish:
-            break  # если None, завершит работу
-        path_copy = copy.deepcopy(path)  # заменить path.copy() на path
-        edges_from_first_to_neighbor = [(G.get_edge_data(home, neighbor))[i] for i in G.get_edge_data(home, neighbor)]
-        for edge_between_first_and_neighbor in edges_from_first_to_neighbor:
-            visited = copy.deepcopy(visited)
-            path_copy.append((home, neighbor, edge_between_first_and_neighbor))
-            paths = dfs_not_circle(G, neighbor, finish, path_copy, visited, [], (path_len))
-            done_queue.put(paths)
-
-def parallel_dfs(graph, airport, finish, path, visited, path_len, circle_or_not ):
-    if circle_or_not == False:
-        target = worker_not_circle
-    else:
-        target = worker_circle
-    neighbours = graph.neighbors(airport)
-    task_queue = multiprocessing.Manager().Queue()
-    done_queue = multiprocessing.Manager().Queue()
-    # создает очередь
-    processes = []
-
-    for neighbour in neighbours:  # помещаем соседей в очередь
-        task_queue.put(neighbour)
-
-    for i in range(2):
-        task_queue.put(None)
-
-    for i in range(2):  # запускаем 2 процесса параллельных
-        process = multiprocessing.Process(target=target, args=(task_queue, done_queue, copy.deepcopy(path), graph, visited, finish, path_len, airport))
-        process.start()
-        processes.append(process)
-
-    for process in processes:
-        process.join()
-
-    paths = []
-    while not done_queue.empty():
-        result = done_queue.get()
-        paths.extend(result)
-
-    return paths
+from multiprocessing import Process, Lock
 
 class Search():
 
     def __init__(self, token="191827beb804bd4d4025b75737717e18"):
         self.token = token
-        self.queue_for_find_paths_of_length = multiprocessing.Queue()
-        self.done_queue_to_user = multiprocessing.Queue()
-        self.thread1 = threading.Thread(target=self.worker_for_find_paths_of_length).start
-        self.thread2 = threading.Thread(target=self.worker_for_find_paths_of_length).start
-
 
     def find_flights_fo_period(self, airports, start_date, end_date, s_period, e_period, home, finish):
         '''To covert period for many separate dates.
@@ -168,34 +59,60 @@ class Search():
             else:
                 necessary_flight[data] = flights_on_data[data]
         return necessary_flight
-    def worker_for_find_paths_of_length(self):
-        '''
-        To start find_paths_of_length pass arg: user_data = [G, home, (len(airports) + 1),finish, tranzit)]
-        '''
-        while True:
-            try:
-                user_data_for_process = self.queue_for_find_paths_of_length.get()
-            except:
-                pass
-            else:
-                self.find_paths_of_length(user_data_for_process)
+    def neccesary_flight_for_period(self):
+        NotImplementedError
 
-    def find_paths_of_length(self, user_data):
+    def find_paths_of_length(self, graph, node, path_len, finish, tranzit):
         paths = []
+        visited = {node: True}
+        def dfs_circle(G, airport: Any, path: Route):
+            for neighbor in graph.neighbors(airport):
 
-        graph = user_data[0]
-        home = user_data[1]
-        finish = user_data[2]
-        r = user_data[3]
-        path_len = user_data[5]
+                flights = []  # TODO: забрать edges между airport и neighbor из графа
+                # flights = G.get_edge_data(airport, neighbor, data=True)
+                for u, v, d in G.edges(data=True):
+                    if u == airport and v == neighbor:
+                        flights.append([airport, neighbor, d])
+                for flight in flights:
+                    path_copy = copy.deepcopy(path)
+                    success = path_copy.append(flight)
+                    if success:
+                        if len(path_copy) == path_len - 1 and path_copy.start == neighbor:
+                            paths.append(path_copy)
+                        elif neighbor not in visited:
+                            visited[neighbor] = True
+                            dfs_circle(G, neighbor, path_copy)
+                            visited.pop(neighbor)
 
-        r = Route(home, finish, r)
-        visited = {home: True}
+        def dfs_not_circle(G, airport, finish, path: Route):
+            for neighbor in graph.neighbors(airport):
+                if len(path) != path_len - 3 and neighbor == finish:
+                    continue
+                flights = []  # TODO: забрать edges между airport и neighbor из графа
+                # flights = G.get_edge_data(airport, neighbor, data=True)
+                for u, v, d in G.edges(data=True):
+                    if u == airport and v == neighbor:
+                        flights.append([airport, neighbor, d])
+                for flight in flights:
+                    path_copy = copy.deepcopy(path)
+                    success = path_copy.append(flight)
+                    if success:
+                        if len(path_copy) == path_len - 2 and path_copy.finish == neighbor:
+                            paths.append(path_copy)
+                        elif neighbor not in visited:
+                            visited[neighbor] = True
+                            dfs_not_circle(G, neighbor, finish, path_copy)
+                            visited.pop(neighbor)
+
+            return paths
+
+        r = Route(node, finish, tranzit)
         if r.start == r.finish:
-           paths = parallel_dfs(graph, home, finish, r, visited, path_len, True)
-        if r.start != r.finish:
-           paths = parallel_dfs(graph, home, finish, r, visited, path_len, False)
-        self.done_queue_to_user.put(paths)
+            dfs_circle(graph, node, r)
+
+        elif r.start != r.finish:
+            dfs_not_circle(graph, node, finish, r)
+        return paths
 
 
     def compute_all_routes(self, start_date, end_date, airports, start_period, end_period, home, finish, tranzit, hate_airl):
@@ -271,13 +188,11 @@ class Search():
                                     time=data_for_one_flight['departure_at'],
                                     time_in_sky=data_for_one_flight['duration'],
                                     airlines=data_for_one_flight['airline'], link=data_for_one_flight['link'])
-        self.add_to_queue(G, home, (len(airports) + 1), finish, tranzit) # добавили в очередь данные
-        self.worker_for_find_paths_of_length()
-        self.check_done_queue_to_user()
+        all_routes = self.find_paths_of_length(G, home, path_len=(len(airports) + 1), finish=finish, tranzit=tranzit)
         end_time = time.time()
         execution_time = end_time - start_time
         print("Время выполнения dfs:", execution_time, "секунд")
-        return G, self.check_done_queue_to_user()
+        return G, all_routes
 
     def find_cheapest_route(self, routes: List[Route]):
         '''
@@ -426,19 +341,3 @@ class Search():
             iata_airlines.append(dict_airlines[name_company])
         return iata_airlines
 
-    def add_to_queue(self, G, home, path_len, finish, tranzit):
-        data = [G, home, path_len, finish, tranzit]
-        self.queue_for_find_paths_of_length.put = data
-
-    def check_done_queue_to_user(self):
-        while True:
-            response = self.done_queue_to_user.get()  # Получаем ответ из очереди
-            if response is None:
-                break
-            else:
-                return response
-
-
-if __name__ == '__main__':
-     sr = Search()
-     _, all_routes = sr.compute_all_routes('2023.06.01', '2023.06.05', ['Москва', 'Томск', 'Казань', 'Новосибирск'], ['2023.06.01', '2023.06.01'], ['2023.06.05', '2023.06.05'], 'Москва', 'Томск', [], [])
