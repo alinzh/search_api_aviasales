@@ -316,7 +316,7 @@ class Search():
             flight_for_month = self.flight_for_month(py_data['data'])
             return flight_for_month
     def convert_city_to_air(self, citys):
-        with open(r"C:\Users\Пользователь\PycharmProjects\pythonProject_avia\city2code.json", encoding="utf-8") as f:
+        with open(r"city2code.json", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(citys, str):
                 airports = data[citys]
@@ -325,7 +325,7 @@ class Search():
             return airports
 
     def convert_tranzit_city_to_air(self, citys):
-        with open(r"C:\Users\Пользователь\PycharmProjects\pythonProject_avia\city2code.json", encoding="utf-8") as f:
+        with open(r"city2code.json", encoding="utf-8") as f:
             data = json.load(f)
             if citys != []:
                 new_tranzit_list = []
