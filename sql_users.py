@@ -10,8 +10,8 @@ def create_table_in_database():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY,
-        username TEXT NOT NULL,
-        full_name TEXT NOT NULL,
+        username TEXT ,
+        full_name TEXT ,
         states INT NOT NULL,
         start_date TEXT NOT NULL,
         end_date TEXT NOT NULL,
@@ -106,8 +106,8 @@ def users_all_the_time(user_id, username, full_name):
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users_all_the_time (
                 user_id INTEGER,
-                username TEXT NOT NULL,
-                full_name TEXT NOT NULL
+                username TEXT,
+                full_name TEXT
             )
         ''')
         conn.commit()
