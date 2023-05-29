@@ -405,8 +405,11 @@ def delete_tranzit(user_id):
     conn = sqlite3.connect('mydatabase.db')
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM users_tranzit WHERE user_id=?", (user_id,))
-    conn.commit()
+    try:
+        cursor.execute("DELETE FROM users_tranzit WHERE user_id=?", (user_id,))
+        conn.commit()
+    except:
+        pass
 
     cursor.close()
     conn.close()
