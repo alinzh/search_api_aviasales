@@ -9,6 +9,8 @@ from enum import IntEnum
 import text_for_send_message_bot
 
 if __name__ == "__main__":
+        telebot.apihelper.ENABLE_MIDDLEWARE = True
+        telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
         bot = telebot.TeleBot("6182172702:AAE-aoQSvCTuyIWKv6zCrXMDM4CB6sYbJtY", parse_mode=None)
 
         # Хранилище флагов, что вводят юзеры (тут все, кто в данный момент что-то вводит)
@@ -362,7 +364,7 @@ if __name__ == "__main__":
                 bot.send_message(message.chat.id, text="Напиши название города, который хочешь посетить.\n\n<i>☝️Города НЕ идут в хронологическом порядке. Модель определяет лучшую комбинацию исходя из фильтров, цены или времени в полёте.</i>", parse_mode="HTML")
             elif check_duration == False:
                 bot.send_message(message.chat.id,
-                                 text="⚠️Указан недопустимый период, от начала до завершения маршрута должно быть не более 21 дня. \n\nУкажите дату или период, чтобы диапазон от даты первого вылета был не более 3 недель.")
+                                 text="⚠️Указан недопустимый период, от начала до завершения маршрута должно быть не более 31 дня. \n\nУкажите дату или период, чтобы диапазон от даты первого вылета был не более 3 недель.")
             else:
                 bot.send_message(message.chat.id,
                                  text="⚠️Дата или период в неверном формате, напиши ее, как в примере:\n- точная дата `YYYY.MM.DD` \n- период `YYYY.MM.DD - YYYY.MM.DD`")

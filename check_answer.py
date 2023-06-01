@@ -29,7 +29,7 @@ class CheckData:
         end = datetime.strptime(end, '%Y.%m.%d')
         delta = end - start
         days = delta.days
-        if days > 21:
+        if days > 31:
             return False
         else:
             return True
