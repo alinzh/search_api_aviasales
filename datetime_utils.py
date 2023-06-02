@@ -1,5 +1,6 @@
 from datetime import datetime
 import pandas as pd
+
 def convert_period_for_dates(start_date, end_date):
     '''
     start_date is date in format: %Y-%m-%d

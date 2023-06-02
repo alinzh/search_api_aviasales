@@ -56,7 +56,6 @@ if __name__ == "__main__":
                 self.best_in_price = None
                 self.best_in_time = None
 
-
         # Here is created sql database and exported date which was in tables for some reasons,
         # for example - download updates or bot falling
 
