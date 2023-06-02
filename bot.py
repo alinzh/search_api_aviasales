@@ -14,7 +14,7 @@ import datetime
 if __name__ == "__main__":
         telebot.apihelper.ENABLE_MIDDLEWARE = True
         telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
-        bot = telebot.TeleBot("6182172702:AAE-aoQSvCTuyIWKv6zCrXMDM4CB6sYbJtY", parse_mode=None)
+        bot = telebot.TeleBot("TOKEN", parse_mode=None)
 
         # Storage of flag that users enter (here is all users, who is typing something at the moment).
         # Here is stored instance of class that can be accesed by user id
@@ -463,10 +463,13 @@ if __name__ == "__main__":
             """
             result, key, step = DetailedTelegramCalendar().process(c.data)
             if not result and key:
-                bot.edit_message_text(f"Выбери:",
-                                      c.message.chat.id,
-                                      c.message.message_id,
-                                      reply_markup=key)
+                try:
+                    bot.edit_message_text(f"Выбери:",
+                                          c.message.chat.id,
+                                          c.message.message_id,
+                                          reply_markup=key)
+                except:
+                    pass
             elif result and (users_state[c.message.chat.id].state == UserStates.WAIT_FOR_FIRST_DATE_FROM_PERIOD_HOME):
                 answer_bool = users_state[c.message.chat.id].search_request_data.set_start_date(first_value=result,
                                                                                                 second_value=None)
