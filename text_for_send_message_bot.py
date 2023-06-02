@@ -1,3 +1,7 @@
+"""
+Here is stores large texts for message to user.
+"""
+
 
 def message_hello():
     mes = "Привет!👋 \
