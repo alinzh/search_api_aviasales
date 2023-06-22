@@ -26,15 +26,22 @@ class SearchRequestData:
         # Паттерн для проверки периода в формате DD/MM/YYYY - DD/MM/YYYY
         period_pattern = r'\d{4}.\d{2}.\d{2}\s*-\s*(\d{4}.\d{2}.\d{2})'
         if re.fullmatch(date_pattern, value):
-            self.start_date = value
-            self.start_period = [value, value]
-            sql_users.append_start_date(self.user_id, value)
-            sql_users.append_start_period(self.user_id, [value, value])
-            return True
+            if '-' not in str(value):
+                self.start_date = value
+                self.start_period = [value, value]
+                sql_users.append_start_date(self.user_id, value)
+                sql_users.append_start_period(self.user_id, [value, value])
+                return True
+            else:
+                return False
         elif re.fullmatch(period_pattern, value):
             period_pattern = r'(\d{4}.\d{2}.\d{2})\s*-\s*(\d{4}.\d{2}.\d{2})'
             match = re.search(period_pattern, value)
             if match:
+                if '-' in match.group(1):  # Если в формате есть точка, возвращаем False
+                    return False
+                if '-' in match.group(2):  # Если в формате есть точка, возвращаем False
+                    return False
                 first_date = datetime.datetime.strptime(match.group(1), '%Y.%m.%d')
                 second_date = datetime.datetime.strptime(match.group(2), '%Y.%m.%d')
                 if second_date < first_date:
