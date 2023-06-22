@@ -12,8 +12,10 @@ import time
 from datetime import datetime, timedelta
 from itertools import product
 from multiprocessing import Process, Lock
+import parallel_dfs
+import multiprocessing
 
-class Search():
+class Search:
     '''
     Search is ticket finder, makes request on Aviasales server by API and builds routes from requests data.
 
@@ -29,8 +31,41 @@ class Search():
     I recommend to complete route for 2-7 citys and period not more for 1 month.
     '''
 
-    def __init__(self, token="TOKEN"):
+    def __init__(self, token="191827beb804bd4d4025b75737717e18"):
         self.token = token
+        self.example = parallel_dfs.ExampleClass(self.show_response, self.parallel_not_circle_dfs, [2, ])
+
+    @staticmethod
+    def show_response(value):
+        print("Я пиздатый ")
+
+    def request_for_parallel(self, value, link_caller):
+        self.example.request(value, link_caller)
+
+    @staticmethod
+    def parallel_not_circle_dfs(graph, airport, finish, path, visited, paths, path_len):
+        result_paths = []
+        for neighbor in graph.neighbors(airport):
+            if len(path) != path_len - 3 and neighbor == finish:
+                continue
+            flights = []  # TODO: забрать edges между airport и neighbor из графа
+            for u, v, d in graph.edges(data=True):
+                if u == airport and v == neighbor:
+                    flights.append([airport, neighbor, d])
+            for flight in flights:
+                path_copy = copy.deepcopy(path)
+                success = path_copy.append(flight)
+                if success:
+                    if len(path_copy) == path_len - 2 and path_copy.finish == neighbor:
+                        paths.append(path_copy)
+                    elif neighbor not in visited:
+                        visited[neighbor] = True
+                        Search.parallel_not_circle_dfs(graph, neighbor, finish, path_copy, visited, paths, path_len)
+                        result_paths.extend(paths)
+                        visited.pop(neighbor)
+        if result_paths:
+            print(f'1 дфс закончен')
+            return result_paths
 
     def find_flights_fo_period(self, airports, start_date, end_date, s_period, e_period, home, finish):
         """To convert period for all separate dates.
@@ -145,7 +180,8 @@ class Search():
         return paths
 
 
-    def compute_all_routes(self, start_date, end_date, airports, start_period, end_period, home, finish, tranzit, hate_airl):
+    def compute_all_routes(self, start_date, end_date, airports, start_period, end_period, home, finish, tranzit,
+                           hate_airl, link_on_search_request_data):
         """
         :param start_date and end_date : str, in format 'YYYY.MM.DD', means date of first flight and date of last flight.
         :param start_period and end_period: list with str,  in format ['YYYY.MM.DD', 'YYYY.MM.DD'],
@@ -230,12 +266,26 @@ class Search():
                                     time=data_for_one_flight['departure_at'],
                                     time_in_sky=data_for_one_flight['duration'],
                                     airlines=data_for_one_flight['airline'], link=data_for_one_flight['link'])
-
-        all_routes = self.find_paths_of_length(G, home, path_len=(len(airports) + 1), finish=finish, tranzit=tranzit)
-        end_time = time.time()
-        execution_time = end_time - start_time
-        print("Время выполнения dfs:", execution_time, "секунд")
-        return G, all_routes
+        neighbors = list(G.neighbors(home))
+        if neighbors == [] or neighbors == None:
+            return None
+        r = Route(home, finish, tranzit)
+        request = {
+            "graph": G,
+            "home": home,
+            "finish": finish,
+            "path": r,
+            "visited": {},
+            "path_len": (len(airports) + 1),
+            "neighbors": neighbors,
+            "circle_or_not": self.parallel_not_circle_dfs
+        }
+        self.request_for_parallel(request, link_on_search_request_data)
+        # all_routes = self.find_paths_of_length(G, home, path_len=(len(airports) + 1), finish=finish, tranzit=tranzit)
+        # end_time = time.time()
+        # execution_time = end_time - start_time
+        # print("Время выполнения dfs:", execution_time, "секунд")
+        # return G, all_routes
 
     def find_cheapest_route(self, routes: List[Route]):
         """
@@ -391,3 +441,9 @@ class Search():
             iata_airlines.append(dict_airlines[name_company])
         return iata_airlines
 
+# if __name__ == '__main__':
+#     # multiprocessing.freeze_support()
+#     sr = Search()
+#     sr.compute_all_routes('2023.06.19', '2023.07.03', ['Москва', 'Томск', 'Казань', 'Новосибирск'], ['2023.06.19', '2023.06.19'], ['2023.07.03', '2023.07.03'], 'Москва', 'Томск', [], [])
+#     while True:
+#         pass
