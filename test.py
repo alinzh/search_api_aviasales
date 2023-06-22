@@ -1,0 +1,2 @@
+Class Sear():
+    ini
