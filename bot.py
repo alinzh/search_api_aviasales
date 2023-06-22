@@ -11,7 +11,7 @@ import text_for_send_message_bot
 if __name__ == "__main__":
         telebot.apihelper.ENABLE_MIDDLEWARE = True
         telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
-        bot = telebot.TeleBot("6236358716:AAHIamfdtsvVhFHKneXurbuXQ0r_3n3cLH8", parse_mode=None)
+        bot = telebot.TeleBot("6182172702:AAE-aoQSvCTuyIWKv6zCrXMDM4CB6sYbJtY", parse_mode=None)
 
         # Хранилище флагов, что вводят юзеры (тут все, кто в данный момент что-то вводит)
         users_state = {}
@@ -92,7 +92,6 @@ if __name__ == "__main__":
             bot.reply_to(message, text = text_for_send_message_bot.message_hello(), reply_markup=markup, parse_mode="HTML")
             sql_users.add_users_to_sql([(message.from_user.id, message.from_user.username, message.from_user.full_name, 0, '', '', '', '', '', '', '[]')])
             sql_users.users_all_the_time(message.from_user.id, message.from_user.username, message.from_user.full_name)
-
         @bot.callback_query_handler(lambda callback_query: callback_query.data == "compute_route")
         def compute_route_handler(callback_query):
             users_state[callback_query.message.chat.id] = UserState(callback_query.message.chat.id) #экземпляр класса UserState() создается тут!!
@@ -200,11 +199,7 @@ if __name__ == "__main__":
                                  text=text_for_send_message_bot.message_search_began_wait(home, finish, start_period,
                                                                                           end_period, airports, tranzit,
                                                                                           hate_airl), parse_mode="HTML")
-                link_on_search_request_data = users_state[callback_query.message.chat.id].search_request_data.append_routes_to_storage
-                sr.compute_all_routes(start_date, end_date, airports, start_period, end_period, home, finish, tranzit, hate_airl, link_on_search_request_data)
-                while users_state[callback_query.message.chat.id].search_request_data.storage_of_route == None:
-                    pass
-                all_routes = users_state[user_id].search_request_data.storage_of_route
+                _, all_routes = sr.compute_all_routes(start_date, end_date, airports,start_period, end_period, home, finish, tranzit, hate_airl)
                 best_routes_price, _ = sr.find_cheapest_route(all_routes)
                 best_routes_time, _ = sr.find_short_in_time_route(all_routes)
                 if best_routes_price == [] and best_routes_time == []:
@@ -379,3 +374,4 @@ if __name__ == "__main__":
             bot.send_document(message.chat.id, document_send)
 
         bot.polling(none_stop=True, interval=0)
+

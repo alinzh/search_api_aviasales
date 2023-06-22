@@ -16,12 +16,6 @@ class SearchRequestData:
         self.tranzit = []
         self.hate_airl = []
         self.user_id = user_id
-        self.storage_of_route = None
-
-    @staticmethod
-    def append_routes_to_storage(self, value):
-        self.storage_of_route = value
-        print('Зааппендила данные в серч реквест дата')
 
     def append_airport(self, airport: str):
         self.airports.append(airport)

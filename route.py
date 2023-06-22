@@ -6,11 +6,6 @@ from typing import Any
 import datetime_utils
 
 class Route:
-    """
-    The instance of this class is stores one route (all data about them).
-
-    Before flight will add to storage, check does is fit the timing - time for tranzit and time for last flight.
-    """
     def __init__(self, start: str, finish: str, tranzit=None):
         self.start = start
         self.finish = finish
@@ -19,7 +14,9 @@ class Route:
 
     def len_tranzit(self, city: str):
         '''
-        :param tranzit: list with tuple in format (arrival_city: str, time_tranzit: int):
+
+        :param tranzit: list with tenzors in format arrival_city+time_tranzit
+        :return:
         '''
         if self.tranzit != None:
             for pair in self.tranzit:
@@ -54,6 +51,7 @@ class Route:
             return True
 
     def period_for_first_departure(self, x, start_date, end_date):
+        # тут нашла ошибку и поменяла название атрибутов (мб что-то сломается, тк раньше работало все ок)
         necessary_date = datetime_utils.convert_period_for_dates(start_date, end_date)
         dict_atrr_2 = x[2]
         date_of_flight = dict_atrr_2['time']
@@ -66,9 +64,11 @@ class Route:
                 return False
             else:
                 continue
-
     def __len__(self):
         return len(self.storage)
+
+    def __getitem__(self, index: Any) -> Any:
+        raise NotImplementedError
 
     def total_price(self) -> float:
         # Метод возвращает сумму стоимостей всех билетов в этом маршруте
