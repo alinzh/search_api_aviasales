@@ -266,7 +266,8 @@ class Search():
               f'&departure_at={departure_at}' \
               f'&return_at={return_at}' \
               f'&sorting={sorting}' \
-              f'&limit={limit}&token={self.token}'
+              f'&limit={limit}&token={self.token}' \
+              f'&campaign_id=100'
         return url
 
     def request(self, url: str) -> Dict[str, Union[bool, List[Dict[str, Any]], str]]:
