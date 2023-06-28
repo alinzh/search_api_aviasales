@@ -266,7 +266,7 @@ class Search():
               f'&departure_at={departure_at}' \
               f'&return_at={return_at}' \
               f'&sorting={sorting}' \
-              f'&limit={limit}&token={self.token}' \
+              f'&limit={limit}&token={self.token}'  \
               f'&campaign_id=100'
         return url
 
