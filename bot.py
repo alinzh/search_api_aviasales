@@ -372,6 +372,9 @@ if __name__ == "__main__":
         def send_welcome(message):
             document_send = sql_users.convert_to_excel()
             bot.send_document(message.chat.id, document_send)
-
-        bot.polling(none_stop=True, interval=0)
+        while True:
+            try:
+                bot.polling(none_stop=True, interval=0)
+            except:
+                continue
 
