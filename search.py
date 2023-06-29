@@ -37,14 +37,18 @@ class Search:
 
     @staticmethod
     def show_response(value):
-        print("Я пиздатый ")
+        all_result = value[0]
+        link_on_search_request_data = value[1]
+        print(f"Передаю результат в search_request_data: {link_on_search_request_data}")
+        link_on_search_request_data(all_result)
 
-    def request_for_parallel(self, value, link_caller):
-        self.example.request(value, link_caller)
+
+    def request_for_parallel(self, value, link_on_search_request_data):
+        self.example.request(value, link_on_search_request_data)
 
     @staticmethod
     def parallel_not_circle_dfs(graph, airport, finish, path, visited, paths, path_len):
-        result_paths = []
+        # print(f'дфс начался')
         for neighbor in graph.neighbors(airport):
             if len(path) != path_len - 3 and neighbor == finish:
                 continue
@@ -61,11 +65,9 @@ class Search:
                     elif neighbor not in visited:
                         visited[neighbor] = True
                         Search.parallel_not_circle_dfs(graph, neighbor, finish, path_copy, visited, paths, path_len)
-                        result_paths.extend(paths)
+                        # paths.extend(path)
                         visited.pop(neighbor)
-        if result_paths:
-            print(f'1 дфс закончен')
-            return result_paths
+        return paths
 
     def find_flights_fo_period(self, airports, start_date, end_date, s_period, e_period, home, finish):
         """To convert period for all separate dates.

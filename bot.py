@@ -7,6 +7,8 @@ from check_answer import CheckData
 import sql_users
 from enum import IntEnum
 import text_for_send_message_bot
+import time
+
 
 if __name__ == "__main__":
         telebot.apihelper.ENABLE_MIDDLEWARE = True
@@ -195,16 +197,25 @@ if __name__ == "__main__":
                 bot.send_message(callback_query.message.chat.id, "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start")
             else:
                 sr = Search()
-                start_date, end_date, airports,start_period, end_period, home, finish, tranzit, hate_airl = users_state[callback_query.message.chat.id].search_request_data.start()
+                start_date, end_date, airports, start_period, end_period, home, finish, tranzit, hate_airl = users_state[callback_query.message.chat.id].search_request_data.start()
                 bot.send_message(callback_query.message.chat.id,
                                  text=text_for_send_message_bot.message_search_began_wait(home, finish, start_period,
                                                                                           end_period, airports, tranzit,
                                                                                           hate_airl), parse_mode="HTML")
-                link_on_search_request_data = users_state[callback_query.message.chat.id].search_request_data.append_routes_to_storage
-                sr.compute_all_routes(start_date, end_date, airports, start_period, end_period, home, finish, tranzit, hate_airl, link_on_search_request_data)
-                while users_state[callback_query.message.chat.id].search_request_data.storage_of_route == None:
+                link_on_search_request_data = \
+                    users_state[callback_query.message.chat.id].search_request_data.append_routes_to_storage
+                sr.compute_all_routes(
+                    start_date, end_date, airports, start_period, end_period, home,
+                    finish, tranzit, hate_airl, link_on_search_request_data)
+                print('Ссылка на search_request_data в боте:', users_state[user_id].search_request_data)
+
+                while users_state[callback_query.message.chat.id].search_request_data.storage_of_route == []:
                     pass
                 all_routes = users_state[user_id].search_request_data.storage_of_route
+                # здесь надо прописать условие, если внутри all_routes есть None - его надо убрать.
+                # если он состоит только из None - передать пустой список.
+                if all_routes == [None]:
+                    all_routes = []
                 best_routes_price, _ = sr.find_cheapest_route(all_routes)
                 best_routes_time, _ = sr.find_short_in_time_route(all_routes)
                 if best_routes_price == [] and best_routes_time == []:

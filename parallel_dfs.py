@@ -70,6 +70,8 @@ class Worker(threading.Thread):
         return request
 
     def share_request(self, request: Any):
+        print(request)
+
         G = request['graph']
         home = request['home']
         finish = request['finish']
@@ -85,8 +87,9 @@ class Worker(threading.Thread):
             edges_from_first_to_neighbor = [(G.get_edge_data(home, neighbor))[i] for i in G.get_edge_data(home, neighbor)]
             for edge_between_first_and_neighbor in edges_from_first_to_neighbor:
                 visited = copy.deepcopy(visited)
+                visited[home] = True
                 path_copy = copy.deepcopy(path)
-                path_copy.append((home, neighbor, edge_between_first_and_neighbor))
+                path_copy.append([home, neighbor, edge_between_first_and_neighbor])
                 # self.shared_request_queue.put((G, neighbor, finish, path_copy, visited, [], path_len, parallel_function))
                 self.shared_request_queue.put((G, neighbor, finish, path_copy, visited, [], path_len, None))
     def run(self):
@@ -101,10 +104,10 @@ class Worker(threading.Thread):
                 request = self.maybe_get_request()
                 # Split request between processes.
                 if request is not None:
-                    self.share_request(request)
+                    link_on_search_request_data = request[0]
+                    request_data = request[1]
+                    self.share_request(request_data)
                     wait_for_result = True
-
-                # multiprocessing.util.Finalize(None, self.release(self.manager), args=(self.manager,), exitpriority=100)
 
             job_is_done = self.shared_request_queue.empty() and not self.shared_result_queue.empty()
 
@@ -114,8 +117,9 @@ class Worker(threading.Thread):
                 # Aggregate response to request
                 while not self.shared_result_queue.empty():
                     result.append(self.shared_result_queue.get())
-                self.results_queue.put(result)
+                self.results_queue.put([result, link_on_search_request_data])
                 print('результат готов')
+                print(result)
                 wait_for_result = False
 
 class RequestHandler:
@@ -170,11 +174,12 @@ class ExampleClass:
         result_caller: function to be called if result is obtained.
         parallel_function: Function to be computed in parallel
         workers: List of number proccesses per worker.
-                 E.g. `workers=[3,1]` means two workers with one worker having `3` processes and one worker having `1` process.
+        E.g. `workers=[3,1]` means two workers with one worker having `3` processes and one worker having `1` process.
         """
         self.requests = queue.Queue()
         self.results = queue.Queue()
         self.result_caller = result_caller
+        # self.link_on_search_request_data = None
 
         self.requests_handler = RequestHandler(
             requests_queue=self.requests,
@@ -188,6 +193,6 @@ class ExampleClass:
         self.results_handler.start()
 
     def request(self, data, link_on_search_request_data):
-        self.result_caller = link_on_search_request_data
-        self.requests.put(data)
+        # self.link_on_search_request_data = link_on_search_request_data
+        self.requests.put([link_on_search_request_data, data])
 

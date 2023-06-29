@@ -16,12 +16,24 @@ class SearchRequestData:
         self.tranzit = []
         self.hate_airl = []
         self.user_id = user_id
-        self.storage_of_route = None
+        self.storage_of_route = []
 
-    @staticmethod
+    # @staticmethod
     def append_routes_to_storage(self, value):
-        self.storage_of_route = value
-        print('Зааппендила данные в серч реквест дата')
+        all_route = []
+        for route in value:
+            if route != []:
+                all_route.append(route)
+        if all_route == []:
+            self.storage_of_route = [None]
+        else:
+            self.storage_of_route = all_route
+        print(f''
+              f'Данные добавлены в хранилище SearchRequestData'
+              f'')
+        print(
+              f'Добавлено {self.storage_of_route}'
+        )
 
     def append_airport(self, airport: str):
         self.airports.append(airport)
