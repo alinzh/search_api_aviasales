@@ -29,8 +29,7 @@ class Search():
         for i in range(len(different_month)):
             data = (different_month)[i]
             flights = self.offers(origin=airports[0], destination=airports[1], departure_at=data,
-                                              return_at='',
-                                              market="ru", limit=1000, sorting="price")
+                                  return_at='', market="ru", limit=1000, sorting="price")
             if i == 0 and flights != None:
                 flights_on_data = flights
             elif flights == None:
@@ -114,8 +113,12 @@ class Search():
         return paths
 
 
-    def compute_all_routes(self, start_date, end_date, airports, start_period, end_period, home, finish, tranzit, hate_airl):
-        '''                      start_date, end_date, airports, start_period, end_period, home, finish, tranzit
+    def compute_all_routes(
+            self, start_date, end_date, airports, start_period, end_period,
+            home, finish, tranzit, hate_airl, flag_chronological
+    ):
+        '''
+        start_date, end_date, airports, start_period, end_period, home, finish, tranzit
         Input: dict with all possible flights between all selected airports.
         To compute all possible routes from all flights.
         Return: Graf and array with routes.
@@ -127,12 +130,12 @@ class Search():
         if hate_airl != [] and hate_airl != None:
             hate_airl = self.convert_name_airlines_to_iata(hate_airl)
         start_time = time.time()
-        flights, combinations_airports, arr_period_date = self.collects_all_flights_for_all_routes(start_date=start_date,
-                                                                                end_date=end_date,
-                                                                                airports=airports,
-                                                                                start_period=start_period,
-                                                                                end_period=end_period,
-                                                                                home=home, finish=finish)
+        flights, combinations_airports, arr_period_date = self.collects_all_flights_for_all_routes(
+            start_date=start_date, end_date=end_date,
+            airports=airports, start_period=start_period,
+            end_period=end_period, home=home, finish=finish,
+            flag_chronological=flag_chronological
+        )
         end_time = time.time()
         execution_time = end_time - start_time
         print("Время выполнения request:", execution_time, "секунд")
@@ -220,7 +223,7 @@ class Search():
         return new_arr_t, sorted_time
 
     def collects_all_flights_for_all_routes(self, start_date, end_date, airports, start_period, end_period, home,
-                                            finish):
+                                            finish, flag_chronological):
         '''
         To call find_flights_fo_period and
         to append all arrays with flights on different routes
@@ -228,24 +231,35 @@ class Search():
         :return: dict, key = route, value = arr with all flights
         '''
         combinations_airports = []
-        temp = combinations(airports, 2)
+        if flag_chronological == False:
 
-        # Создаем комбинации из двух аэропортов, где ([)n, m) и (m, n) считается =
-        for i in list(temp):
-            combinations_airports.append(i)
+            temp = combinations(airports, 2)
 
-        # создаем кортеж с обратными напрвлениями
-        return_combinations = combinations_airports.copy()
+            # Создаем комбинации из двух аэропортов, где (n, m) и (m, n) считается =
+            for i in list(temp):
+                combinations_airports.append(i)
+            # создаем кортеж с обратными напрвлениями
+            return_combinations = combinations_airports.copy()
+            # создаем новый кортеж с элементами в обратном порядке
+            for idx, i in enumerate(return_combinations):
+                i = (*i[::-1],)
+                return_combinations[idx] = i
+            # совмещаем кортеж с обратными и необратными направлениями
+            for idx, i in enumerate(return_combinations):
+                combinations_airports.append(i)
+        else:
+            if home != finish:
+                for i in range(len(airports) - 1):
+                    pair = (airports[i], airports[i+1])
+                    combinations_airports.append(pair)
+            elif home == finish:
+                for i in range(len(airports) - 1):
+                    pair = (airports[i], airports[i+1])
+                    combinations_airports.append(pair)
+                    if len(combinations_airports) == (len(airports) - 1):
+                        pair = (airports[-1], home)
+                        combinations_airports.append(pair)
 
-        # создаем новый кортеж с элементами в обратном порядке
-        for idx, i in enumerate(return_combinations):
-            i = (*i[::-1],)
-            return_combinations[idx] = i
-
-        # совмещаем кортеж с обратными и необратными направлениями
-        for idx, i in enumerate(return_combinations):
-            combinations_airports.append(i)
-        # вызвать функцию со всеми возможными парами аэропортов
         dict = {}
         for idx, pair_air in enumerate(combinations_airports):
             req_for_period = self.find_flights_fo_period(pair_air, start_date, end_date, start_period, end_period, home,
@@ -340,3 +354,9 @@ class Search():
         for name_company in airlines:
             iata_airlines.append(dict_airlines[name_company])
         return iata_airlines
+
+# Search().compute_all_routes(
+#             start_date='2023.08.02', end_date='2023.08.12', airports=['Москва', 'Томск', 'Казань', 'Сочи'], start_period=['2023.08.02', '2023.08.02'],
+#             end_period=['2023.08.12', '2023.08.12'], home='Москва', finish='Москва',
+#             tranzit=[], hate_airl=[], flag_chronological=True
+#     )

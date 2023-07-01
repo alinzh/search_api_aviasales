@@ -16,6 +16,8 @@ class SearchRequestData:
         self.tranzit = []
         self.hate_airl = []
         self.user_id = user_id
+        self.chronological = False
+        self.circle_or_not = False
 
     def append_airport(self, airport: str):
         self.airports.append(airport)
@@ -102,6 +104,8 @@ class SearchRequestData:
         if fact == True:
             self.finish = self.home
             sql_users.append_finish(self.user_id, self.home)
+            self.circle_or_not = True
+
     def append_finish_airport(self, airport):
         if airport != self.home:
             self.finish = str(airport)
@@ -169,4 +173,18 @@ class SearchRequestData:
         self.hate_airl = value
 
     def start(self):
-        return self.start_date, self.end_date, self.airports, self.start_period, self.end_period, self.home, self.finish, self.tranzit, self.hate_airl
+
+        if self.chronological:
+            if not self.circle_or_not:
+                if len(self.airports) == 2:
+                    self.finish = self.airports[-1]
+                    self.end_date = self.start_date
+                    if self.start_period == None:
+                        self.start_period = [self.start_date, self.start_date]
+                    if self.end_period == None:
+                        self.end_period = [self.start_date, self.start_date]
+                else:
+                    self.finish = self.airports[-1]
+
+        return self.start_date, self.end_date, self.airports, self.start_period, self.end_period, \
+            self.home, self.finish, self.tranzit, self.hate_airl, self.chronological

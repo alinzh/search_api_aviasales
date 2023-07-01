@@ -15,6 +15,12 @@ def message_hello():
         \n\nЯ найду всё и сразу! В ответ направлю маршруты с ценами и ссылками на билеты."
     return mes
 
+def message_chronological_search_or_not():
+    mes = "Выбери:\
+        \n\n- составить маршрут из городов в хронологическом порядке\
+        \n - использовать оптимальную последовательность (первый и последний останутся фиксированными)"
+    return mes
+
 def message_search_began_wait(home, finish, start_period, end_period, citys, tranzit, hate_air):
     if end_period[0] == end_period[1]:
         end_period = end_period[0]
