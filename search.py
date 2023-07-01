@@ -12,7 +12,7 @@ import time
 
 class Search():
 
-    def __init__(self, token="TOKEN"):
+    def __init__(self, token="191827beb804bd4d4025b75737717e18"):
         self.token = token
 
     def find_flights_fo_period(self, airports, start_date, end_date, s_period, e_period, home, finish):
