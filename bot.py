@@ -11,7 +11,7 @@ import text_for_send_message_bot as t_mesg
 if __name__ == "__main__":
         telebot.apihelper.ENABLE_MIDDLEWARE = True
         telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
-        bot = telebot.TeleBot("6182172702:AAE-aoQSvCTuyIWKv6zCrXMDM4CB6sYbJtY", parse_mode=None)
+        bot = telebot.TeleBot("TOKEN", parse_mode=None)
 
 
         # Storage of flag that users enter (here is all users, who is typing something at the moment).
@@ -289,7 +289,7 @@ if __name__ == "__main__":
                         if chronological:
                             bot.reply_to(
                                 callback_query.message,
-                                text=t_mesg.message_write_last_in_route_chronological()
+                                text=t_mesg.message_write_last_in_route_chronological(), parse_mode="HTML"
                             )
                         else:
                             bot.reply_to(
