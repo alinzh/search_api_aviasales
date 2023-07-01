@@ -22,12 +22,28 @@ def create_table_in_database():
         hate_airl TEXT NOT NULL
         
     )
-''')
+    ''')
 # Закрытие курсора и сохранение изменений
     cursor.close()
     conn.commit()
     conn.close()
 
+def add_column_chronological_and_circle():
+    conn = sqlite3.connect('mydatabase.db')
+    cursor = conn.cursor()
+
+    cursor.execute('PRAGMA table_info(users)')
+    # получаем названия всех столбцов таблицы
+    columns = [column[1] for column in cursor.fetchall()]
+
+    if 'chronological' not in columns:
+        cursor.execute('ALTER TABLE users ADD COLUMN chronological BOOL DEFAULT 0')
+    if 'circle' not in columns:
+        cursor.execute('ALTER TABLE users ADD COLUMN circle BOOL DEFAULT 0')
+
+    cursor.close()
+    conn.commit()
+    conn.close()
 
 def add_users_to_sql(new_users):
     '''
@@ -43,7 +59,7 @@ def add_users_to_sql(new_users):
 
         if existing_user is None:
         # Добавление нового пользователя, если его еще нет в базе данных
-            cursor.execute('INSERT INTO users (user_id, username, full_name, states, start_date, end_date, start_period, end_period, home, finish, hate_airl) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', user)
+            cursor.execute('INSERT INTO users (user_id, username, full_name, states, start_date, end_date, start_period, end_period, home, finish, hate_airl, chronological, circle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', user)
             print(f'Added user {user[0]}')
         else:
             print(f'User {user[0]} already exists')
@@ -127,6 +143,7 @@ def users_all_the_time(user_id, username, full_name):
     # Закрытие соединения с базой данных
     cursor.close()
     conn.close()
+
 def append_airports(user_id, airports):
     conn = sqlite3.connect('mydatabase.db')
     cursor = conn.cursor()
@@ -321,6 +338,37 @@ def append_hate_airl(user_id, hate_air):
         print(f'User {user_id} does not exist')
     conn.commit()
     conn.close()
+
+def append_chronological(user_id, chronological_bool):
+    conn = sqlite3.connect('mydatabase.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE user_id=?', (user_id,))
+    existing_user = cursor.fetchone()
+
+    if existing_user is not None:
+        # Обновляем состояние пользователя
+        cursor.execute('UPDATE users SET chronological=? WHERE user_id=?', (chronological_bool, user_id))
+        print(f'Updated: chronological is {chronological_bool} for user {user_id}')
+    else:
+        print(f'User {user_id} does not exist')
+    conn.commit()
+    conn.close()
+
+def append_circle(user_id, circle):
+    conn = sqlite3.connect('mydatabase.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE user_id=?', (user_id,))
+    existing_user = cursor.fetchone()
+
+    if existing_user is not None:
+        # Обновляем состояние пользователя
+        cursor.execute('UPDATE users SET circle=? WHERE user_id=?', (circle, user_id))
+        print(f'Updated: chronological is {circle} for user {user_id}')
+    else:
+        print(f'User {user_id} does not exist')
+    conn.commit()
+    conn.close()
+
 def get_user_state(user_id):
     conn = sqlite3.connect('mydatabase.db')
     cursor = conn.cursor()

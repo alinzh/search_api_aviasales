@@ -9,13 +9,10 @@ import datetime_utils
 from route import Route
 import air_iata
 import time
-from datetime import datetime, timedelta
-from itertools import product
-from multiprocessing import Process, Lock
 
 class Search():
 
-    def __init__(self, token="191827beb804bd4d4025b75737717e18"):
+    def __init__(self, token="TOKEN"):
         self.token = token
 
     def find_flights_fo_period(self, airports, start_date, end_date, s_period, e_period, home, finish):
@@ -67,7 +64,7 @@ class Search():
         def dfs_circle(G, airport: Any, path: Route):
             for neighbor in graph.neighbors(airport):
 
-                flights = []  # TODO: забрать edges между airport и neighbor из графа
+                flights = []
                 for u, v, d in G.edges(data=True):
                     if u == airport and v == neighbor:
                         flights.append([airport, neighbor, d])
@@ -86,7 +83,7 @@ class Search():
             for neighbor in graph.neighbors(airport):
                 if len(path) != path_len - 3 and neighbor == finish:
                     continue
-                flights = []  # TODO: забрать edges между airport и neighbor из графа
+                flights = []
                 # flights = G.get_edge_data(airport, neighbor, data=True)
                 for u, v, d in G.edges(data=True):
                     if u == airport and v == neighbor:
@@ -355,8 +352,3 @@ class Search():
             iata_airlines.append(dict_airlines[name_company])
         return iata_airlines
 
-# Search().compute_all_routes(
-#             start_date='2023.08.02', end_date='2023.08.12', airports=['Москва', 'Томск', 'Казань', 'Сочи'], start_period=['2023.08.02', '2023.08.02'],
-#             end_period=['2023.08.12', '2023.08.12'], home='Москва', finish='Москва',
-#             tranzit=[], hate_airl=[], flag_chronological=True
-#     )

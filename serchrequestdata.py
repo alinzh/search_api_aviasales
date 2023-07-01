@@ -5,6 +5,15 @@ import datetime
 import sql_users
 
 class SearchRequestData:
+    """
+    Here is stores all data about users input for search tickets in the future. Instance class separate created
+    for every user. All that func is stores will be options (filter) for search thickets.
+
+    Every func from this class does some processing of data, checking for correctly form and added to storage (__init__).
+
+    Data also added to SQL(it is important because might happen with bot and bot will be falling down,
+    or will download updates)
+    """
     def __init__(self, user_id):
         self.start_date = None
         self.end_date = None
@@ -20,10 +29,17 @@ class SearchRequestData:
         self.circle_or_not = False
 
     def append_airport(self, airport: str):
+        """
+        Added not first and not last airport
+        """
         self.airports.append(airport)
         sql_users.append_airports(self.user_id, airport)
 
     def set_start_date(self, value: str):
+        """
+        :param first_value: date of first departure or first date from period of first departure
+        :param second_value: second date from period of first departure
+        """
         date_pattern = r'\d{4}.\d{2}.\d{2}'
         # Паттерн для проверки периода в формате DD/MM/YYYY - DD/MM/YYYY
         period_pattern = r'\d{4}.\d{2}.\d{2}\s*-\s*(\d{4}.\d{2}.\d{2})'
@@ -59,10 +75,10 @@ class SearchRequestData:
             return False
 
     def append_time_tranzit(self, value: str):
-        '''
-        tranzit is str in format days or hours. Check is it contain 'д' or 'ч'
-        :return:
-        '''
+        """
+        Added time for tranzit in city,
+        tranzit is str in format days or hours. Checking is it contain 'д' or 'ч'
+        """
         tranzit_pattern_days = r'^(\d+)[д]$'
         tranzit_pattern_hours = r'^(\d+)[ч]$'
         match_d = re.match(tranzit_pattern_days, value)
@@ -99,12 +115,17 @@ class SearchRequestData:
         sql_users.append_home(self.user_id, home)
         sql_users.append_airports(self.user_id, home)
 
-
     def append_circle(self, fact: bool):
-        if fact == True:
+        if fact:
             self.finish = self.home
             sql_users.append_finish(self.user_id, self.home)
             self.circle_or_not = True
+            sql_users.append_circle(self.user_id, fact)
+
+    def append_chronological(self, fact: bool):
+        if fact:
+            self.chronological = fact
+            sql_users.append_chronological(self.user_id, fact)
 
     def append_finish_airport(self, airport):
         if airport != self.home:
@@ -171,8 +192,13 @@ class SearchRequestData:
         self.end_date = value
     def append_hate_airl_exception_sql(self, value):
         self.hate_airl = value
+    def append_circle_or_not_exception_sql(self, value):
+        self.circle_or_not = value
+    def append_chronological_exception_sql(self, value):
+        self.chronological = value
 
     def start(self):
+        """This func is called last, is return all data"""
 
         if self.chronological:
             if not self.circle_or_not:
