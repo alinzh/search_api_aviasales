@@ -417,7 +417,7 @@ if __name__ == "__main__":
                     sql_users.update_user_state(callback_query.message.chat.id,
                                                 users_state[callback_query.message.chat.id].state)
                     bot.reply_to(
-                        callback_query.message, text=t_mesg.message_end_date_for_chronological_route
+                        callback_query.message, text=t_mesg.message_end_date_for_chronological_route()
                     )
 
         @bot.message_handler(func=lambda message: message.chat.id in users_state and users_state[
