@@ -208,7 +208,7 @@ class SearchRequestData:
                     if self.start_period == None:
                         self.start_period = [self.start_date, self.start_date]
                     if self.end_period == None:
-                        self.end_period = [self.start_date, self.start_date]
+                        self.end_period = self.start_period
                 else:
                     self.finish = self.airports[-1]
 
