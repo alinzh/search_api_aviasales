@@ -10,7 +10,7 @@ Search can search for tickets based on complex filters. You can use this to find
 By the way, this bot is able to search for the best offers that Aviasales does not offer.
 
 # Structure
-![UML-](https://github.com/alinzh/search_api_aviasales/assets/124587537/338fecf1-a401-499b-a46e-cbcb44ba4911)
+![uml_03_07_2023 (1)](https://github.com/alinzh/search_api_aviasales/assets/124587537/ab6e3f4b-4a1a-472a-9a81-d99c33dcaeb3)
 
 # How to use bot
 
