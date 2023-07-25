@@ -7,11 +7,14 @@ from check_answer import CheckData
 import sql_users
 from enum import IntEnum
 import text_for_send_message_bot as t_mesg
+import yaml
 
 if __name__ == "__main__":
         telebot.apihelper.ENABLE_MIDDLEWARE = True
         telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
-        bot = telebot.TeleBot("6336873881:AAHLPi62d06GSoZUoXYh-Xi98mzI_OR-aSc", parse_mode=None)
+        with open('config.yaml') as f:
+            personal_data = yaml.safe_load(f)
+        bot = telebot.TeleBot(personal_data['bot_token'], parse_mode=None)
 
 
         # Storage of flag that users enter (here is all users, who is typing something at the moment).

@@ -83,4 +83,7 @@ class Route:
         for idx, time in enumerate(self.storage):
             flight = time[2]
             duration += flight['time_in_sky']
-        return duration
+            hours = int(duration) // 60
+            minute = int(duration) % 60
+            answer = f'{hours}ч {minute}мин'
+        return answer

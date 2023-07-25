@@ -9,10 +9,14 @@ import datetime_utils
 from route import Route
 import air_iata
 import time
+import yaml
+
+with open('config.yaml') as f:
+    personal_data = yaml.safe_load(f)
 
 class Search():
 
-    def __init__(self, token="18b76c41d72d78c5dd5076a599beead1"):
+    def __init__(self, token=personal_data['aviasales_token']):
         self.token = token
 
     def find_flights_fo_period(self, airports, start_date, end_date, s_period, e_period, home, finish):

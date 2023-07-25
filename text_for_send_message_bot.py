@@ -123,7 +123,14 @@ def message_search_began_wait(home, finish, start_period, end_period, citys, tra
         tranz = tranzit.copy()
         tranzit = ''
         for one_tranzit in tranz:
-            tranzit += one_tranzit[0] + ' - ' + str(one_tranzit[1]) + ' мин, '
+            time_minutes = one_tranzit[1]
+            time_days = int(time_minutes) // 1440
+            time_hours = int(time_minutes) // 60
+            if time_days == 0:
+                time_tranzit = f'{time_hours}ч, '
+            else:
+                time_tranzit = f'{time_days}д, '
+            tranzit += one_tranzit[0] + ' - ' + time_tranzit
     if hate_air == []:
         hate_air = 'нет фильтра'
     else:
@@ -157,8 +164,10 @@ def answer_with_tickets_for_user(suggested_by_price, suggested_by_time):
         departure = dict_with_data['time']
         airline = dict_with_data['airlines']
         time_in_sky = dict_with_data['time_in_sky']
+        hours = int(time_in_sky) // 60
+        minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
-        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky}\'' \
+        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин' \
                 f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
         all_route_cheap += route
     all_route_fast = f''
@@ -171,12 +180,14 @@ def answer_with_tickets_for_user(suggested_by_price, suggested_by_time):
         departure = dict_with_data['time']
         airline = dict_with_data['airlines']
         time_in_sky = dict_with_data['time_in_sky']
+        hours = int(time_in_sky) // 60
+        minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
-        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky}\'' \
+        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин' \
                 f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
         all_route_fast += route
 
-    mes = f'💰<b>Самый дешевый</b>\n💸Цена за все перелёты: {suggested_by_price.total_price()}₽\n\n{all_route_cheap}\n\n⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()} мин\n\n{all_route_fast}'
+    mes = f'💰<b>Самый дешевый</b>\n💸Цена за все перелёты: {suggested_by_price.total_price()}₽\n\n{all_route_cheap}\n\n⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()}\n\n{all_route_fast}'
     return mes
 
 def message_answer_tickets_more_cheap(suggested_by_price):
@@ -190,8 +201,10 @@ def message_answer_tickets_more_cheap(suggested_by_price):
         departure = dict_with_data['time']
         airline = dict_with_data['airlines']
         time_in_sky = dict_with_data['time_in_sky']
+        hours = int(time_in_sky) // 60
+        minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
-        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky}\'' \
+        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин'\
                 f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
         all_route_cheap += route
 
@@ -209,9 +222,11 @@ def message_answer_tickets_more_short(suggested_by_time):
         departure = dict_with_data['time']
         airline = dict_with_data['airlines']
         time_in_sky = dict_with_data['time_in_sky']
+        hours = int(time_in_sky) // 60
+        minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
-        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky} мин\'' \
+        route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин'\
                 f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
         all_route_fast += route
-        mes = f'⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()}мин\n\n{all_route_fast}'
+        mes = f'⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()}\n\n{all_route_fast}'
     return mes
