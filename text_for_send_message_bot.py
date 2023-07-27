@@ -169,13 +169,16 @@ def answer_with_tickets_for_user(suggested_by_price, suggested_by_time):
         dict_with_data = flight[2]
         price = dict_with_data['weight']
         departure = dict_with_data['time']
-        airline = air_names[dict_with_data['airlines']]
+        if air_names[dict_with_data['airlines']] == 'None':
+            airline = dict_with_data['airlines']
+        else:
+            airline = air_names[dict_with_data['airlines']]
         time_in_sky = dict_with_data['time_in_sky']
         hours = int(time_in_sky) // 60
         minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
         if dict_with_data['transfers']:
-            transfer = f"\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}"
+            transfer = f"<b>\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}</b>"
         else:
             transfer = ''
         route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин' \
@@ -192,13 +195,16 @@ def answer_with_tickets_for_user(suggested_by_price, suggested_by_time):
         dict_with_data = flight[2]
         price = dict_with_data['weight']
         departure = dict_with_data['time']
-        airline = air_names[dict_with_data['airlines']]
+        if air_names[dict_with_data['airlines']] == 'None':
+            airline = dict_with_data['airlines']
+        else:
+            airline = air_names[dict_with_data['airlines']]
         time_in_sky = dict_with_data['time_in_sky']
         hours = int(time_in_sky) // 60
         minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
         if dict_with_data['transfers']:
-            transfer = f"\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}"
+            transfer = f"<b>\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}</b>"
         else:
             transfer = ''
         route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин' \
@@ -224,13 +230,16 @@ def message_answer_tickets_more_cheap(suggested_by_price):
         dict_with_data = flight[2]
         price = dict_with_data['weight']
         departure = dict_with_data['time']
-        airline = air_names[dict_with_data['airlines']]
+        if air_names[dict_with_data['airlines']] == 'None':
+            airline = dict_with_data['airlines']
+        else:
+            airline = air_names[dict_with_data['airlines']]
         time_in_sky = dict_with_data['time_in_sky']
         hours = int(time_in_sky) // 60
         minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
         if dict_with_data['transfers']:
-            transfer = f"\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}"
+            transfer = f"<b>\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}</b>"
         else:
             transfer = ''
         route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин'\
@@ -256,13 +265,16 @@ def message_answer_tickets_more_short(suggested_by_time):
         dict_with_data = flight[2]
         price = dict_with_data['weight']
         departure = dict_with_data['time']
-        airline = air_names[dict_with_data['airlines']]
+        if air_names[dict_with_data['airlines']] == 'None':
+            airline = dict_with_data['airlines']
+        else:
+            airline = air_names[dict_with_data['airlines']]
         time_in_sky = dict_with_data['time_in_sky']
         hours = int(time_in_sky) // 60
         minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
         if dict_with_data['transfers']:
-            transfer = f"\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}"
+            transfer = f"<b>\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}</b>"
         else:
             transfer = ''
         route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин'\
