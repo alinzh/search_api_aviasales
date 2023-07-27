@@ -16,7 +16,6 @@ if __name__ == "__main__":
             personal_data = yaml.safe_load(f)
         bot = telebot.TeleBot(personal_data['bot_token'], parse_mode=None)
 
-
         # Storage of flag that users enter (here is all users, who is typing something at the moment).
         # Here is stored instance of class that can be accesed by user id
         users_state = {}
@@ -136,6 +135,12 @@ if __name__ == "__main__":
             searching by the optimal sequence of cities.
             Here is created instance class of UserState where will stores all data about user.
             """
+            try:
+                sql_users.delete_airports(callback_query.message.chat.id)
+                sql_users.delete_tranzit(callback_query.message.chat.id)
+                sql_users.delete_user(callback_query.message.chat.id)
+            except:
+                print('Failed to remove user from database. Perhaps he is new.')
             users_state[callback_query.message.chat.id] = UserState(callback_query.message.chat.id)
             # экземпляр класса UserState() создается тут!!
             markup = types.InlineKeyboardMarkup()
@@ -222,6 +227,9 @@ if __name__ == "__main__":
                 markup = types.InlineKeyboardMarkup()
                 markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
                 markup.add(types.InlineKeyboardButton('Выбрать нежеланные авиакомпании', callback_data='hate_airl'))
+                markup.add(
+                    types.InlineKeyboardButton('Отменить. Начать заново', callback_data='choose_chronological_or_not_route')
+                )
                 bot.send_message(message.chat.id, text=t_mesg.message_no_more_cities(), reply_markup=markup)
             else:
                 bot.send_message(message.chat.id, text=t_mesg.message_city_alredy_in_route())
@@ -243,6 +251,9 @@ if __name__ == "__main__":
                 markup.add(types.InlineKeyboardButton('Добавить город', callback_data='add_airport'))
                 markup.add(types.InlineKeyboardButton('Выбрать нежеланные авиакомпании', callback_data='hate_airl'))
                 markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
+                markup.add(
+                    types.InlineKeyboardButton('Отменить. Начать заново', callback_data='choose_chronological_or_not_route')
+                )
                 bot.reply_to(callback_query.message, text="Супер! Что делаем дальше?", reply_markup=markup)
 
         @bot.message_handler(
@@ -263,6 +274,9 @@ if __name__ == "__main__":
                 markup.add(types.InlineKeyboardButton('Добавить город', callback_data='add_airport'))
                 markup.add(types.InlineKeyboardButton('Выбрать нежеланные авиакомпании', callback_data='hate_airl'))
                 markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
+                markup.add(
+                    types.InlineKeyboardButton('Отменить. Начать заново', callback_data='choose_chronological_or_not_route')
+                )
                 bot.send_message(message.chat.id, text="Супер! Что делаем дальше?", reply_markup=markup)
             elif not answer:
                 bot.send_message(message.chat.id, text=t_mesg.message_tranzit_in_wrong_format(), parse_mode='HTML')
@@ -341,6 +355,9 @@ if __name__ == "__main__":
                 markup.add(types.InlineKeyboardButton('Начать поиск!', callback_data='start_search'))
                 markup.add(types.InlineKeyboardButton(
                     'Добавить еще исключение из авиакомпаний', callback_data='hate_airl')
+                )
+                markup.add(
+                    types.InlineKeyboardButton('Отменить. Начать заново', callback_data='choose_chronological_or_not_route')
                 )
                 bot.send_message(message.chat.id, text="Супер! Что делаем дальше?", reply_markup=markup)
             else:
@@ -590,6 +607,7 @@ if __name__ == "__main__":
                 markup = types.InlineKeyboardMarkup()
                 markup.add(types.InlineKeyboardButton('Кольцевой', callback_data='circle'))
                 markup.add(types.InlineKeyboardButton('В один конец', callback_data='one_way'))
+                markup.add(types.InlineKeyboardButton('Отменить. Начать заново', callback_data='choose_chronological_or_not_route'))
                 bot.send_message(
                     message.chat.id, text=t_mesg.message_circle_or_not(), reply_markup=markup, parse_mode="HTML"
                 )

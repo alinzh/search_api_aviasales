@@ -1,7 +1,7 @@
 """
 Here is stores large texts for message to user.
 """
-
+import json
 
 def message_hello():
     mes = "Привет!👋 \
@@ -155,36 +155,54 @@ def message_timeout_for_waiting():
 
 def answer_with_tickets_for_user(suggested_by_price, suggested_by_time):
     all_route_cheap = f''
+    with open(r"city2code.json", encoding="utf-8") as f:
+        names_of_citys = (json.load(f)).items()
+    with open(r"name_airlines_iato.json", encoding="utf-8") as s:
+        air_names = json.load(s)
     for idx, flight in enumerate(suggested_by_price.storage):
         number = (idx + 1)
-        first_airport = flight[0]
-        second_airport = flight[1]
+        for pair in names_of_citys:
+            if pair[1] == flight[0]:
+                first_airport = pair[0]
+            elif pair[1] == flight[1]:
+                second_airport = pair[0]
         dict_with_data = flight[2]
         price = dict_with_data['weight']
         departure = dict_with_data['time']
-        airline = dict_with_data['airlines']
+        airline = air_names[dict_with_data['airlines']]
         time_in_sky = dict_with_data['time_in_sky']
         hours = int(time_in_sky) // 60
         minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
+        if dict_with_data['transfers']:
+            transfer = f"\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}"
+        else:
+            transfer = ''
         route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин' \
-                f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
+                f'\nАвиакомпания: {airline}{transfer}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
         all_route_cheap += route
     all_route_fast = f''
     for idx, flight in enumerate(suggested_by_time.storage):
         number = (idx + 1)
-        first_airport = flight[0]
-        second_airport = flight[1]
+        for pair in names_of_citys:
+            if pair[1] == flight[0]:
+                first_airport = pair[0]
+            elif pair[1] == flight[1]:
+                second_airport = pair[0]
         dict_with_data = flight[2]
         price = dict_with_data['weight']
         departure = dict_with_data['time']
-        airline = dict_with_data['airlines']
+        airline = air_names[dict_with_data['airlines']]
         time_in_sky = dict_with_data['time_in_sky']
         hours = int(time_in_sky) // 60
         minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
+        if dict_with_data['transfers']:
+            transfer = f"\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}"
+        else:
+            transfer = ''
         route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин' \
-                f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
+                f'\nАвиакомпания: {airline}{transfer}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
         all_route_fast += route
 
     mes = f'💰<b>Самый дешевый</b>\n💸Цена за все перелёты: {suggested_by_price.total_price()}₽\n\n{all_route_cheap}\n\n⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()}\n\n{all_route_fast}'
@@ -192,20 +210,31 @@ def answer_with_tickets_for_user(suggested_by_price, suggested_by_time):
 
 def message_answer_tickets_more_cheap(suggested_by_price):
     all_route_cheap = f''
+    with open(r"city2code.json", encoding="utf-8") as f:
+        names_of_citys = (json.load(f)).items()
+    with open(r"name_airlines_iato.json", encoding="utf-8") as s:
+        air_names = json.load(s)
     for idx, flight in enumerate(suggested_by_price.storage):
         number = (idx + 1)
-        first_airport = flight[0]
-        second_airport = flight[1]
+        for pair in names_of_citys:
+            if pair[1] == flight[0]:
+                first_airport = pair[0]
+            elif pair[1] == flight[1]:
+                second_airport = pair[0]
         dict_with_data = flight[2]
         price = dict_with_data['weight']
         departure = dict_with_data['time']
-        airline = dict_with_data['airlines']
+        airline = air_names[dict_with_data['airlines']]
         time_in_sky = dict_with_data['time_in_sky']
         hours = int(time_in_sky) // 60
         minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
+        if dict_with_data['transfers']:
+            transfer = f"\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}"
+        else:
+            transfer = ''
         route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин'\
-                f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
+                f'\nАвиакомпания: {airline}{transfer}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
         all_route_cheap += route
 
         mes = f'💰<b>Самый дешевый</b>\n💸Цена за все перелёты: {suggested_by_price.total_price()}₽\n\n{all_route_cheap}\n'
@@ -213,20 +242,31 @@ def message_answer_tickets_more_cheap(suggested_by_price):
 
 def message_answer_tickets_more_short(suggested_by_time):
     all_route_fast = f''
+    with open(r"city2code.json", encoding="utf-8") as f:
+        names_of_citys = (json.load(f)).items()
+    with open(r"name_airlines_iato.json", encoding="utf-8") as s:
+        air_names = json.load(s)
     for idx, flight in enumerate(suggested_by_time.storage):
         number = (idx + 1)
-        first_airport = flight[0]
-        second_airport = flight[1]
+        for pair in names_of_citys:
+            if pair[1] == flight[0]:
+                first_airport = pair[0]
+            elif pair[1] == flight[1]:
+                second_airport = pair[0]
         dict_with_data = flight[2]
         price = dict_with_data['weight']
         departure = dict_with_data['time']
-        airline = dict_with_data['airlines']
+        airline = air_names[dict_with_data['airlines']]
         time_in_sky = dict_with_data['time_in_sky']
         hours = int(time_in_sky) // 60
         minute = int(time_in_sky) % 60
         link = f"https://www.aviasales.ru{dict_with_data['link']}"
+        if dict_with_data['transfers']:
+            transfer = f"\n‼️Внимание: в рейсе внеплановые пересадки в количестве: {dict_with_data['transfers']}"
+        else:
+            transfer = ''
         route = f'{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {hours}ч {minute}мин'\
-                f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
+                f'\nАвиакомпания: {airline}{transfer}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
         all_route_fast += route
         mes = f'⚡️<b>Самый быстрый</b>\n⏳Продолжительность всех рейсов: {suggested_by_time.total_time()}\n\n{all_route_fast}'
     return mes

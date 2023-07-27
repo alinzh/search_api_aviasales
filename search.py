@@ -164,14 +164,22 @@ class Search():
                                  if data_for_one_flight['airline'] == airline:
                                      continue
                                  else:
-                                     G.add_edge(i[0], i[1], weight=data_for_one_flight['price'],
+                                     G.add_edge(
+                                                i[0], i[1], weight=data_for_one_flight['price'],
                                                 time=data_for_one_flight['departure_at'],
                                                 time_in_sky=data_for_one_flight['duration'],
                                                 airlines=data_for_one_flight['airline'],
-                                                link=data_for_one_flight['link'])
+                                                link=data_for_one_flight['link'],
+                                                transfers=data_for_one_flight['transfers']
+                                                )
                          else:
                              G.add_edge(i[0], i[1], weight=data_for_one_flight['price'],
-                                       time=data_for_one_flight['departure_at'], time_in_sky=data_for_one_flight['duration'],airlines = data_for_one_flight['airline'], link = data_for_one_flight['link'])
+                                       time=data_for_one_flight['departure_at'],
+                                        time_in_sky=data_for_one_flight['duration'],
+                                        airlines=data_for_one_flight['airline'],
+                                        link=data_for_one_flight['link'],
+                                        transfers=data_for_one_flight['transfers']
+                                        )
                 elif time_data[arr_period_date[j]] == None:
                     continue
                 else:
@@ -185,12 +193,17 @@ class Search():
                                             time=data_for_one_flight['departure_at'],
                                             time_in_sky=data_for_one_flight['duration'],
                                             airlines=data_for_one_flight['airline'],
-                                            link=data_for_one_flight['link'])
+                                            link=data_for_one_flight['link'],
+                                            transfers=data_for_one_flight['transfers']
+                                            )
                      else:
                          G.add_edge(i[0], i[1], weight=data_for_one_flight['price'],
                                     time=data_for_one_flight['departure_at'],
                                     time_in_sky=data_for_one_flight['duration'],
-                                    airlines=data_for_one_flight['airline'], link=data_for_one_flight['link'])
+                                    airlines=data_for_one_flight['airline'],
+                                    link=data_for_one_flight['link'],
+                                    transfers=data_for_one_flight['transfers']
+                                    )
         all_routes = self.find_paths_of_length(G, home, path_len=(len(airports) + 1), finish=finish, tranzit=tranzit)
         end_time = time.time()
         execution_time = end_time - start_time

@@ -1,5 +1,4 @@
 import re
-from search import Search
 import air_iata
 import datetime
 import sql_users
@@ -41,7 +40,6 @@ class SearchRequestData:
         :param second_value: second date from period of first departure
         """
         date_pattern = r'\d{4}.\d{2}.\d{2}'
-        # Паттерн для проверки периода в формате DD/MM/YYYY - DD/MM/YYYY
         period_pattern = r'\d{4}.\d{2}.\d{2}\s*-\s*(\d{4}.\d{2}.\d{2})'
         if re.fullmatch(date_pattern, value):
             if '-' not in str(value):
@@ -56,12 +54,17 @@ class SearchRequestData:
             period_pattern = r'(\d{4}.\d{2}.\d{2})\s*-\s*(\d{4}.\d{2}.\d{2})'
             match = re.search(period_pattern, value)
             if match:
-                if '-' in match.group(1):  # Если в формате есть точка, возвращаем False
+                if '-' in match.group(1):
                     return False
-                if '-' in match.group(2):  # Если в формате есть точка, возвращаем False
+                if '-' in match.group(2):
                     return False
-                first_date = datetime.datetime.strptime(match.group(1), '%Y.%m.%d')
-                second_date = datetime.datetime.strptime(match.group(2), '%Y.%m.%d')
+                try:
+                    # Тут костыль. Возвращается False, если нет в этом месяце 31-ого числа
+                    # При этом возвращается ошибка "Указан недопустимый период"
+                    first_date = datetime.datetime.strptime(match.group(1), '%Y.%m.%d')
+                    second_date = datetime.datetime.strptime(match.group(2), '%Y.%m.%d')
+                except:
+                    return False
                 if second_date < first_date:
                     return False
                 first_date = match.group(1)
@@ -139,11 +142,15 @@ class SearchRequestData:
 
     def append_date_or_period_to_finish(self, value):
         date_pattern = r'\d{4}.\d{2}.\d{2}'
-        # Паттерн для проверки периода в формате DD/MM/YYYY - DD/MM/YYYY
         period_pattern = r'\d{4}.\d{2}.\d{2}\s*-\s*\d{4}.\d{2}.\d{2}'
         if re.fullmatch(date_pattern, value):
-            first_date = datetime.datetime.strptime(self.start_date, '%Y.%m.%d')
-            second_date = datetime.datetime.strptime(value, '%Y.%m.%d')
+            try:
+                # Тут костыль. Возвращается False, если нет в этом месяце 31-ого числа
+                # При этом возвращается ошибка "Указан недопустимый период"
+                first_date = datetime.datetime.strptime(self.start_date, '%Y.%m.%d')
+                second_date = datetime.datetime.strptime(value, '%Y.%m.%d')
+            except:
+                return False
             if second_date < first_date:
                 return False
             else:
@@ -156,8 +163,13 @@ class SearchRequestData:
         elif re.fullmatch(period_pattern, value):
             match = re.search(r"(\d{4}.\d{2}.\d{2})\s*-\s*(\d{4}.\d{2}.\d{2})", value)
             if match:
-                first_date = datetime.datetime.strptime(match.group(1), '%Y.%m.%d')
-                second_date = datetime.datetime.strptime(match.group(2), '%Y.%m.%d')
+                try:
+                    first_date = datetime.datetime.strptime(match.group(1), '%Y.%m.%d')
+                    second_date = datetime.datetime.strptime(match.group(2), '%Y.%m.%d')
+                except:
+                    # Тут костыль. Возвращается False, если нет в этом месяце 31-ого числа
+                    # При этом возвращается ошибка "Указан недопустимый период"
+                    return False
                 departure_from_home = datetime.datetime.strptime(self.start_date, '%Y.%m.%d')
                 if second_date < first_date:
                     return False
