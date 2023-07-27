@@ -337,7 +337,8 @@ class Search():
     def offers(self, **kwargs):
         url = self.patricular_url_for_req(**kwargs)
         py_data = self.request(url)
-
+        if py_data == {'error': 'token is not authorized'}:
+            print('ERROR! Token is failed')
         if py_data['data'] == [] or py_data['success'] == False:
             return
         else:
