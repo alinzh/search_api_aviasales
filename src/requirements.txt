@@ -1,0 +1,11 @@
+fastapi==0.97.0
+Flask==2.3.2
+networkx==3.0
+numpy==1.24.2
+pandas==2.0.1
+pyTelegramBotAPI==4.11.0
+python-json-logger==2.0.7
+python-telegram-bot-calendar==1.0.5
+PyYAML==6.0
+requests==2.28.2
+telebot==0.0.5

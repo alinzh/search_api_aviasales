@@ -1,0 +1,24 @@
+h1 {
+  text-align: center;
+}
+
+form {
+  width: 400px;
+  margin: 0 auto;
+}
+
+label {
+  display: block;
+  margin-top: 10px;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="time"] {
+  width: 100%;
+  padding: 5px;
+  margin-top: 5px;
+}
+
+#transit_container {
+  margin-top: 10px;
