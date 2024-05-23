@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 
+
 class CheckData:
     """
     Func from this class checking users answer for incorrect.
@@ -10,7 +11,7 @@ class CheckData:
         """
         Check name of city for spelling mistakes.
         """
-        with open(r"city2code.json", encoding="utf-8") as f:
+        with open(r"../data/city2code.json", encoding="utf-8") as f:
             data2 = json.load(f)
             if city in data2:
                 return True
@@ -40,8 +41,8 @@ class CheckData:
             return True
 
     def check_period_duration(self, start, end):
-        start = datetime.strptime(start, '%Y.%m.%d')
-        end = datetime.strptime(str(end), '%Y.%m.%d')
+        start = datetime.strptime(start, "%Y.%m.%d")
+        end = datetime.strptime(str(end), "%Y.%m.%d")
         delta = end - start
         days = delta.days
         if days > 31:
