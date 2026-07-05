@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import os
 import sys
@@ -29,6 +30,14 @@ if __name__ == "__main__":
     telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
     bot = telebot.TeleBot(os.environ["TELEGRAM_BOT_TOKEN"], parse_mode=None)
     logger.info("Бот запущен, token=%s...%s", os.environ["TELEGRAM_BOT_TOKEN"][:8], os.environ["TELEGRAM_BOT_TOKEN"][-4:])
+
+    _RESTART_BUTTON = types.InlineKeyboardButton("🔄 Начать заново", callback_data="compute_route")
+
+    def _with_restart(markup):
+        if isinstance(markup, str):
+            markup = types.InlineKeyboardMarkup.de_json(json.loads(markup))
+        markup.add(_RESTART_BUTTON)
+        return markup
 
     # Storage of flag that users enter (here is all users, who is typing something at the moment).
     # Here is stored instance of class that can be accesed by user id
@@ -217,6 +226,7 @@ if __name__ == "__main__":
             "Напиши название города отправления. \n\n<i>Например - Москва или "
             "Санкт-Петербург</i>.",
             parse_mode="HTML",
+            reply_markup=_with_restart(types.InlineKeyboardMarkup()),
         )
 
     @bot.message_handler(
@@ -256,7 +266,7 @@ if __name__ == "__main__":
                 message.chat.id,
                 text="🕘Напиши минимальный период транзита через этот город. \n\n<i>Пиши в "
                 "формате дней, например - '5д', либо в формате часов, например - '10ч'.</i>",
-                reply_markup=markup,
+                reply_markup=_with_restart(markup),
                 parse_mode="HTML",
             )
         elif answer != True:
@@ -264,6 +274,7 @@ if __name__ == "__main__":
                 message.chat.id,
                 text="⚠️Название города указано с ошибками, проверь правописание и напиши еще "
                 "раз в И.П. с заглавной буквы.",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         elif check_on_len_route != True:
             markup = types.InlineKeyboardMarkup()
@@ -280,12 +291,13 @@ if __name__ == "__main__":
             bot.send_message(
                 message.chat.id,
                 text="⚠️Лимит на количество городов исчерпан. \nНачнем поиск?",
-                reply_markup=markup,
+                reply_markup=_with_restart(markup),
             )
         else:
             bot.send_message(
                 message.chat.id,
                 text="⚠️Этот город уже добавлен в маршрут. Выбери другой.",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(
@@ -303,7 +315,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             sql_users.update_user_state(
@@ -329,7 +342,7 @@ if __name__ == "__main__":
             bot.reply_to(
                 callback_query.message,
                 text="Супер! Что делаем дальше?",
-                reply_markup=markup,
+                reply_markup=_with_restart(markup),
             )
 
     @bot.message_handler(
@@ -369,14 +382,15 @@ if __name__ == "__main__":
                 )
             )
             bot.send_message(
-                message.chat.id, text="Супер! Что делаем дальше?", reply_markup=markup
+                message.chat.id, text="Супер! Что делаем дальше?", reply_markup=_with_restart(markup)
             )
         elif answer == False:
             bot.send_message(
                 message.chat.id,
                 text="⚠️Транзит в неверном формате.\nВведи еще раз, либо в днях - число с буквой "
-                "'д', ибо в часах - число с буквой 'ч'.\n<b>Например '7д' или '12ч'.</b>",
+                "'д', либо в часах - число с буквой 'ч'.\n<b>Например '7д' или '12ч'.</b>",
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(
@@ -399,7 +413,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             bot.reply_to(
@@ -408,6 +423,7 @@ if __name__ == "__main__":
                 "в хронологическом порядке. Модель определяет лучшую комбинацию исходя из фильтров, цены или времени "
                 "в полёте.</i>",
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(
@@ -429,7 +445,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             bot.reply_to(
@@ -437,6 +454,7 @@ if __name__ == "__main__":
                 "Напиши название авиакомпании, которую не стоит добавлять в подборку. "
                 "\n\n<i>Пиши с заглавной буквы, например - Победа или Азимут.</i>",
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.message_handler(
@@ -475,7 +493,7 @@ if __name__ == "__main__":
                 )
             )
             bot.send_message(
-                message.chat.id, text="Супер! Что делаем дальше?", reply_markup=markup
+                message.chat.id, text="Супер! Что делаем дальше?", reply_markup=_with_restart(markup)
             )
         else:
             bot.send_message(
@@ -483,6 +501,7 @@ if __name__ == "__main__":
                 text="⚠️Название авиакомпании написано некорректно. Попробуй еще раз, пиши с "
                 "заглавной буквы.\nЕсли сомневаешься - посмотри официальное название авиакомпании, например:"
                 "\n'Ред Вингс' или 'Северный Ветер (Nordwind Airlines)'",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(
@@ -508,7 +527,8 @@ if __name__ == "__main__":
             logger.exception("user=%s ошибка в start_search_handler", user_id)
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             sr = Search()
@@ -533,6 +553,7 @@ if __name__ == "__main__":
                     home, finish, start_period, end_period, airports, tranzit, hate_airl
                 ),
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
             _, all_routes = sr.compute_all_routes(
                 start_date,
@@ -552,16 +573,10 @@ if __name__ == "__main__":
             )
             if best_routes_price == [] and best_routes_time == []:
                 markup = types.InlineKeyboardMarkup()
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Попробовать другие параметры поиска!",
-                        callback_data="compute_route",
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     f"Ого!😳 С такими жесткими фильтрами не нашлось ни одного маршрута...\n\nПопробуем что-то поменять?",
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
                 sql_users.delete_airports(callback_query.message.chat.id)
                 sql_users.delete_tranzit(callback_query.message.chat.id)
@@ -584,11 +599,6 @@ if __name__ == "__main__":
                         "Еще быстрых", callback_data="show_next_fast_flight"
                     )
                 )
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Начать новый поиск!", callback_data="compute_route"
-                    )
-                )
                 suggested_by_price = next(
                     users_state[callback_query.message.chat.id].best_in_price
                 )
@@ -600,7 +610,7 @@ if __name__ == "__main__":
                     text=text_for_send_message_bot.answer_with_tickets_for_user(
                         suggested_by_price, suggested_by_time
                     ),
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
                 sql_users.delete_airports(callback_query.message.chat.id)
@@ -627,7 +637,8 @@ if __name__ == "__main__":
         except:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             try:
@@ -636,15 +647,10 @@ if __name__ == "__main__":
                 )
             except:
                 markup = types.InlineKeyboardMarkup()
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Продолжить поиск!", callback_data="compute_route"
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     f"Увы, вы просмотрели все билеты.\nПродолжим поиск с другими фильтрами?",
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
             else:
                 markup = types.InlineKeyboardMarkup()
@@ -658,17 +664,12 @@ if __name__ == "__main__":
                         "Еще быстрых", callback_data="show_next_fast_flight"
                     )
                 )
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Начать новый поиск!", callback_data="compute_route"
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     text=text_for_send_message_bot.message_answer_tickets_more_cheap(
                         suggested_by_price
                     ),
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
 
@@ -692,7 +693,8 @@ if __name__ == "__main__":
         except:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             try:
@@ -701,15 +703,10 @@ if __name__ == "__main__":
                 )
             except:
                 markup = types.InlineKeyboardMarkup()
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Продолжить поиск!", callback_data="compute_route"
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     f"Увы, вы просмотрели все билеты.\nПродолжим поиск с другими фильтрами?",
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
             else:
                 markup = types.InlineKeyboardMarkup()
@@ -723,17 +720,12 @@ if __name__ == "__main__":
                         "Еще быстрых", callback_data="show_next_fast_flight"
                     )
                 )
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Начать новый поиск!", callback_data="compute_route"
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     text=text_for_send_message_bot.message_answer_tickets_more_short(
                         suggested_by_time
                     ),
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
 
@@ -765,13 +757,14 @@ if __name__ == "__main__":
             bot.send_message(
                 message.chat.id,
                 text=f"Выбери дату или период вылета.",
-                reply_markup=calendar,
+                reply_markup=_with_restart(calendar),
             )
         else:
             bot.send_message(
                 message.chat.id,
                 text="⚠️Название города указано с ошибками, проверь правописание и напиши "
                 "еще раз в И.П. с заглавной буквы",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(func=DetailedTelegramCalendar.func())
@@ -789,7 +782,7 @@ if __name__ == "__main__":
                     f"Выбери:",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=key,
+                    reply_markup=_with_restart(key),
                 )
             except:
                 pass
@@ -818,7 +811,7 @@ if __name__ == "__main__":
                     f"датой начала периода.",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
 
         elif result and (
@@ -854,7 +847,7 @@ if __name__ == "__main__":
                     f"<i>Напиши период заново или оставь только первую дату для вылета.</i>",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
             else:
@@ -877,7 +870,7 @@ if __name__ == "__main__":
                     f"\nВ один конец - аэропорт вылета не совпадает с с аэропортом прилета.</i>",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
 
@@ -914,7 +907,7 @@ if __name__ == "__main__":
                     f"датой начала периода.",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
             else:
                 users_state[c.message.chat.id].state = (
@@ -935,7 +928,7 @@ if __name__ == "__main__":
                     f"\n\n<i>Выбери дату или период заново</i>",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=calendar,
+                    reply_markup=_with_restart(calendar),
                     parse_mode="HTML",
                 )
 
@@ -988,7 +981,7 @@ if __name__ == "__main__":
                         f"маршруте был не более 4 недель.",
                         c.message.chat.id,
                         c.message.message_id,
-                        reply_markup=calendar,
+                        reply_markup=_with_restart(calendar),
                         parse_mode="HTML",
                     )
             else:
@@ -1010,7 +1003,7 @@ if __name__ == "__main__":
                     f"<i>Выбери дату или период заново</i>",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=calendar,
+                    reply_markup=_with_restart(calendar),
                     parse_mode="HTML",
                 )
 
@@ -1037,7 +1030,7 @@ if __name__ == "__main__":
         bot.send_message(
             callback_query.message.chat.id,
             text=f"Выбери дату окончания периода.",
-            reply_markup=calendar,
+            reply_markup=_with_restart(calendar),
         )
 
     @bot.callback_query_handler(
@@ -1063,7 +1056,7 @@ if __name__ == "__main__":
         bot.send_message(
             callback_query.message.chat.id,
             text=f"Выбери дату окончания периода.",
-            reply_markup=calendar,
+            reply_markup=_with_restart(calendar),
         )
 
     @bot.callback_query_handler(
@@ -1089,7 +1082,7 @@ if __name__ == "__main__":
         bot.send_message(
             callback_query.message.chat.id,
             text=f"Выбери дату или период вылета.",
-            reply_markup=calendar,
+            reply_markup=_with_restart(calendar),
         )
 
     @bot.callback_query_handler(
@@ -1113,7 +1106,7 @@ if __name__ == "__main__":
             callback_query.message.chat.id,
             text="Выбери, какой у тебя маршрут.\n\n<i>Кольцевой - с возвращением в первый пункт вылета. \nВ один "
             "конец - аэропорт вылета не совпадает с с аэропортом прилета.</i>",
-            reply_markup=markup,
+            reply_markup=_with_restart(markup),
             parse_mode="HTML",
         )
 
@@ -1136,7 +1129,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             users_state[
@@ -1150,7 +1144,7 @@ if __name__ == "__main__":
             bot.reply_to(
                 callback_query.message,
                 "Выбери дату последнего возвратного вылета.",
-                reply_markup=calendar,
+                reply_markup=_with_restart(calendar),
             )
 
     @bot.callback_query_handler(lambda callback_query: callback_query.data == "one_way")
@@ -1168,7 +1162,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             bot.reply_to(
@@ -1176,6 +1171,7 @@ if __name__ == "__main__":
                 "Напиши крайний город в твоём маршруте. \n\n<i>Модель сама определит "
                 "доступные аэропорта для него.</i>",
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.message_handler(
@@ -1212,7 +1208,7 @@ if __name__ == "__main__":
                 bot.send_message(
                     message.chat.id,
                     text="Выбери дату вылета последнего полёта в маршруте",
-                    reply_markup=calendar,
+                    reply_markup=_with_restart(calendar),
                 )
             else:
                 markup = types.InlineKeyboardMarkup()
@@ -1224,7 +1220,7 @@ if __name__ == "__main__":
                     text="⚠️Название города прилета совпадает с городом вылета, такой фильтр "
                     "невозможен для маршрута в одну сторону. Если ты хочешь найти кольцевой маршрут, нажми на "
                     "кнопку Кольцевой.",
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
 
         else:
@@ -1232,6 +1228,7 @@ if __name__ == "__main__":
                 message.chat.id,
                 text="⚠️Название города указано с ошибками, проверь правописание "
                 "и напиши еще раз в И.П. с заглавной буквы",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.message_handler(commands=["request_to_sql"])
