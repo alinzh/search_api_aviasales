@@ -65,6 +65,18 @@ class Directory:
             "AUH": "Абу-Даби",
             "DOH": "Доха",
             "TAS": "Ташкент",
+            "ALA": "Алматы",
+            "NQZ": "Астана",
+            "EVN": "Ереван",
+            "TBS": "Тбилиси",
+            "BAK": "Баку",
+            "KUL": "Куала-Лумпур",
+            "SIN": "Сингапур",
+            "TYO": "Токио",
+            "ICN": "Сеул",
+            "DAD": "Дананг",
+            "CNX": "Чиангмай",
+            "AYT": "Анталья",
         }
         result.update(preferred)
         return result
@@ -86,6 +98,22 @@ class Directory:
     def airlines(self) -> dict[str, str]:
         with open(self.data_dir / "airlines.json", encoding="utf-8") as f:
             return json.load(f)
+
+    @cached_property
+    def idea_destinations(self) -> dict[str, dict[str, str]]:
+        with open(self.data_dir / "idea_destinations.json", encoding="utf-8") as f:
+            raw = json.load(f)
+        return {code.upper(): payload for code, payload in raw.items()}
+
+    def idea_destination_codes(self) -> tuple[str, ...]:
+        return tuple(self.idea_destinations.keys())
+
+    def idea_profile(self, code: str) -> dict[str, str]:
+        code = code.upper()
+        return self.idea_destinations.get(
+            code,
+            {"label": self.label_for_code(code), "country": "Другое", "category": "вариант"},
+        )
 
     def resolve_city_code(self, value: str) -> tuple[str, str] | None:
         normalized = normalize_name(value)

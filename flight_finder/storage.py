@@ -104,4 +104,7 @@ def query_to_jsonable(query: SearchQuery) -> dict:
         "market": query.market,
         "mode": query.mode.value,
         "raw_text": query.raw_text,
+        "return_to_origin": query.return_to_origin,
+        "return_date_from": query.return_date_from.isoformat() if query.return_date_from else None,
+        "return_date_to": query.return_date_to.isoformat() if query.return_date_to else None,
     }

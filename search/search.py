@@ -4,7 +4,7 @@ from datetime import date
 
 from flight_finder.config import Settings
 from flight_finder.directories import Directory
-from flight_finder.models import Destination, SearchMode, SearchQuery
+from flight_finder.models import CityPoint, Destination, MultiCityQuery, SearchMode, SearchQuery
 from flight_finder.travelpayouts_client import TravelpayoutsClient
 
 
@@ -12,8 +12,9 @@ class Search:
     """Compatibility wrapper for the old `from search import Search` import.
 
     New code should use `flight_finder.travelpayouts_client.TravelpayoutsClient`.
-    This wrapper exposes a small, product-oriented API for simple city/country
-    discovery searches and keeps the old project import path alive.
+    This wrapper keeps the original project idea alive: unordered multi-city route
+    optimization, where the user gives cities to visit and the algorithm chooses
+    the cheapest order.
     """
 
     def __init__(self, token: str | None = None, marker: str | None = None):
@@ -58,3 +59,48 @@ class Search:
             mode=SearchMode.DISCOVERY if len(destination_resolved.codes) > 1 else SearchMode.QUICK,
         )
         return self.client.search(query, self.directory, limit_per_destination=limit_per_destination)
+
+    def optimize_multicity(
+        self,
+        origin: str,
+        cities: list[str],
+        date_from: date,
+        date_to: date,
+        min_stay_days: int = 1,
+        max_stay_days: int | None = 7,
+        return_to_origin: bool = True,
+        max_price: int | None = None,
+        max_transfers: int | None = None,
+        max_duration_minutes: int | None = None,
+        max_routes: int = 5,
+    ):
+        origin_resolved = self.directory.resolve_city_code(origin)
+        if not origin_resolved:
+            raise ValueError(f"Unknown origin city: {origin}")
+        origin_label, origin_code = origin_resolved
+        points: list[CityPoint] = []
+        seen = {origin_code}
+        for city_name in cities:
+            city = self.directory.resolve_city_code(city_name)
+            if not city:
+                raise ValueError(f"Unknown city: {city_name}")
+            label, code = city
+            if code in seen:
+                continue
+            seen.add(code)
+            points.append(CityPoint(label, code))
+        query = MultiCityQuery(
+            origin=CityPoint(origin_label, origin_code),
+            visit_cities=tuple(points),
+            date_from=date_from,
+            date_to=date_to,
+            min_stay_days=min_stay_days,
+            max_stay_days=max_stay_days,
+            return_to_origin=return_to_origin,
+            max_price=max_price,
+            max_transfers=max_transfers,
+            max_duration_minutes=max_duration_minutes,
+            currency=self.settings.currency,
+            market=self.settings.market,
+        )
+        return self.client.optimize_multicity(query, self.directory, max_routes=max_routes)
