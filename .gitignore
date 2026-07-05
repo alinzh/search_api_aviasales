@@ -1,3 +1,6 @@
 /.idea
 *.db
 /.ruff_cache/
+/.env
+/bot.log
+/venv/

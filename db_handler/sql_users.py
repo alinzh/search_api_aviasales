@@ -6,7 +6,6 @@ import pandas as pd
 def create_table_in_database():
     conn = sqlite3.connect("mydatabase.db")
     cursor = conn.cursor()
-    # Создание таблицы users
     cursor.execute(
         """
     CREATE TABLE IF NOT EXISTS users (
@@ -22,6 +21,25 @@ def create_table_in_database():
         finish TEXT NOT NULL,
         hate_airl TEXT NOT NULL
         
+    )
+        """
+    )
+    cursor.execute(
+        """
+    CREATE TABLE IF NOT EXISTS user_airports (
+        user_id INTEGER,
+        airport TEXT,
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
+    )
+        """
+    )
+    cursor.execute(
+        """
+    CREATE TABLE IF NOT EXISTS users_tranzit (
+        user_id INTEGER,
+        airport TEXT,
+        duration TEXT,
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
     )
         """
     )

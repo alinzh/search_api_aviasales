@@ -1,5 +1,8 @@
 import datetime
+import os
 from enum import IntEnum
+
+from dotenv import load_dotenv
 
 import telebot
 import text_for_send_message_bot
@@ -12,9 +15,10 @@ from search.serchrequestdata import SearchRequestData
 from utils.check_answer import CheckData
 
 if __name__ == "__main__":
+    load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
     telebot.apihelper.ENABLE_MIDDLEWARE = True
     telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
-    bot = telebot.TeleBot("TOKEN", parse_mode=None)
+    bot = telebot.TeleBot(os.environ["TELEGRAM_BOT_TOKEN"], parse_mode=None)
 
     # Storage of flag that users enter (here is all users, who is typing something at the moment).
     # Here is stored instance of class that can be accesed by user id
@@ -61,7 +65,7 @@ if __name__ == "__main__":
     # Here is created sql database and exported date which was in tables for some reasons,
     # for example - download updates or bot falling
 
-    # sql_users.create_table_in_database()
+    sql_users.create_table_in_database()
     date_from_sql_users = sql_users.get_all_data_from_table()
     date_from_sql_users_airport = sql_users.get_all_data_from_users_airport()
     date_from_sql_users_tranzit = sql_users.get_all_data_from_users_tranzit()
@@ -729,7 +733,7 @@ if __name__ == "__main__":
             calendar, step = DetailedTelegramCalendar(
                 locale="ru",
                 min_date=datetime.date.today(),
-                max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+                max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
             ).build()
             bot.send_message(
                 message.chat.id,
@@ -893,7 +897,7 @@ if __name__ == "__main__":
                     locale="ru",
                     min_date=datetime.date.today(),
                     max_date=datetime.datetime.strptime(
-                        "2024.06.01", "%Y.%m.%d"
+                        "2027.12.31", "%Y.%m.%d"
                     ).date(),
                 ).build()
                 bot.edit_message_text(
@@ -939,7 +943,7 @@ if __name__ == "__main__":
                         locale="ru",
                         min_date=datetime.date.today(),
                         max_date=datetime.datetime.strptime(
-                            "2024.06.01", "%Y.%m.%d"
+                            "2027.12.31", "%Y.%m.%d"
                         ).date(),
                     ).build()
                     users_state[c.message.chat.id].state = (
@@ -968,7 +972,7 @@ if __name__ == "__main__":
                     locale="ru",
                     min_date=datetime.date.today(),
                     max_date=datetime.datetime.strptime(
-                        "2024.06.01", "%Y.%m.%d"
+                        "2027.12.31", "%Y.%m.%d"
                     ).date(),
                 ).build()
                 bot.edit_message_text(
@@ -998,7 +1002,7 @@ if __name__ == "__main__":
         calendar, step = DetailedTelegramCalendar(
             locale="ru",
             min_date=datetime.date.today(),
-            max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+            max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
         ).build()
         bot.send_message(
             callback_query.message.chat.id,
@@ -1024,7 +1028,7 @@ if __name__ == "__main__":
         calendar, step = DetailedTelegramCalendar(
             locale="ru",
             min_date=datetime.date.today(),
-            max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+            max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
         ).build()
         bot.send_message(
             callback_query.message.chat.id,
@@ -1050,7 +1054,7 @@ if __name__ == "__main__":
         calendar, step = DetailedTelegramCalendar(
             locale="ru",
             min_date=datetime.date.today(),
-            max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+            max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
         ).build()
         bot.send_message(
             callback_query.message.chat.id,
@@ -1110,7 +1114,7 @@ if __name__ == "__main__":
             calendar, step = DetailedTelegramCalendar(
                 locale="ru",
                 min_date=datetime.date.today(),
-                max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+                max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
             ).build()
             bot.reply_to(
                 callback_query.message,
@@ -1169,7 +1173,7 @@ if __name__ == "__main__":
                     locale="ru",
                     min_date=datetime.date.today(),
                     max_date=datetime.datetime.strptime(
-                        "2024.06.01", "%Y.%m.%d"
+                        "2027.12.31", "%Y.%m.%d"
                     ).date(),
                 ).build()
                 bot.send_message(
