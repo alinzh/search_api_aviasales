@@ -1,5 +1,7 @@
 import datetime
+import logging
 import os
+import sys
 from enum import IntEnum
 
 from dotenv import load_dotenv
@@ -16,9 +18,17 @@ from utils.check_answer import CheckData
 
 if __name__ == "__main__":
     load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        stream=sys.stdout,
+    )
+    logger = logging.getLogger("bot")
+    logging.getLogger("telebot").setLevel(logging.INFO)
     telebot.apihelper.ENABLE_MIDDLEWARE = True
     telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
     bot = telebot.TeleBot(os.environ["TELEGRAM_BOT_TOKEN"], parse_mode=None)
+    logger.info("Бот запущен, token=%s...%s", os.environ["TELEGRAM_BOT_TOKEN"][:8], os.environ["TELEGRAM_BOT_TOKEN"][-4:])
 
     # Storage of flag that users enter (here is all users, who is typing something at the moment).
     # Here is stored instance of class that can be accesed by user id
@@ -131,6 +141,7 @@ if __name__ == "__main__":
         Sending hello-message to user.
         Added to SQL user_id, username, full_name (if not hidden), data about route is empty on start.
         """
+        logger.info("user=%s @%s /start", message.from_user.id, message.from_user.username)
         markup = types.InlineKeyboardMarkup()
         markup.add(
             types.InlineKeyboardButton("Начать поиск", callback_data="compute_route")
@@ -174,6 +185,7 @@ if __name__ == "__main__":
 
         Also here is rest data abot route users, how already used bot, but decide to start new search
         """
+        logger.info("user=%s начал подбор маршрута", callback_query.from_user.id)
         users_state[callback_query.message.chat.id] = UserState(
             callback_query.message.chat.id
         )
@@ -220,6 +232,7 @@ if __name__ == "__main__":
         Also here is checking spelling of city and checking city does not repeat.
         """
         airport = message.text
+        logger.info("user=%s ввёл промежуточный город: %s", message.from_user.id, airport)
         answer = CheckData().check_city(airport)
         answer_2 = CheckData().check_if_city_in_route(
             airport, users_state[message.chat.id].search_request_data.airports
@@ -330,6 +343,7 @@ if __name__ == "__main__":
         This filter is optional, default time for tranzit is 60 min.
         """
         time_tranzit = message.text
+        logger.info("user=%s ввёл транзит: %s", message.from_user.id, time_tranzit)
         answer = users_state[message.chat.id].search_request_data.append_time_tranzit(
             time_tranzit
         )
@@ -435,6 +449,7 @@ if __name__ == "__main__":
         Spelling is checking immediately.
         """
         hate_airl = message.text
+        logger.info("user=%s исключил авиакомпанию: %s", message.from_user.id, hate_airl)
         answer = users_state[message.chat.id].search_request_data.append_hate_airl(
             hate_airl
         )
@@ -482,6 +497,7 @@ if __name__ == "__main__":
 
         Next: one of best_in_time (routes) and one of best_in_price (routes) are calculated and sending to user.
         """
+        user_id = callback_query.from_user.id
         try:
             users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_END
             sql_users.update_user_state(
@@ -489,6 +505,7 @@ if __name__ == "__main__":
                 users_state[callback_query.message.chat.id].state,
             )
         except:
+            logger.exception("user=%s ошибка в start_search_handler", user_id)
             bot.send_message(
                 callback_query.message.chat.id,
                 "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
@@ -506,6 +523,10 @@ if __name__ == "__main__":
                 tranzit,
                 hate_airl,
             ) = users_state[callback_query.message.chat.id].search_request_data.start()
+            logger.info(
+                "user=%s ЗАПУСК ПОИСКА: %s→%s, период вылета %s-%s, города=%s, транзит=%s, исключения=%s",
+                user_id, home, finish, start_period, end_period, airports, tranzit, hate_airl,
+            )
             bot.send_message(
                 callback_query.message.chat.id,
                 text=text_for_send_message_bot.message_search_began_wait(
@@ -526,6 +547,9 @@ if __name__ == "__main__":
             )
             best_routes_price, _ = sr.find_cheapest_route(all_routes)
             best_routes_time, _ = sr.find_short_in_time_route(all_routes)
+            logger.info(
+                "user=%s ПОИСК ЗАВЕРШЁН: найдено %d маршрутов", user_id, len(all_routes)
+            )
             if best_routes_price == [] and best_routes_time == []:
                 markup = types.InlineKeyboardMarkup()
                 markup.add(
@@ -591,6 +615,7 @@ if __name__ == "__main__":
         This func is sending next best route by time (total flights time for all rote). It is getting data from
         instance of class UserState and sending to user.
         """
+        logger.info("user=%s запросил следующий дешёвый вариант", callback_query.from_user.id)
         try:
             users_state[callback_query.message.chat.id].state = (
                 UserStates.WAIT_FOR_MORE_TICKETS
@@ -655,6 +680,7 @@ if __name__ == "__main__":
         This func is sending next best route by time (total flights time for all rote). It is getting data from
         instance of class UserState and sending to user.
         """
+        logger.info("user=%s запросил следующий быстрый вариант", callback_query.from_user.id)
         try:
             users_state[callback_query.message.chat.id].state = (
                 UserStates.WAIT_FOR_MORE_TICKETS
@@ -721,6 +747,7 @@ if __name__ == "__main__":
         If not - send message with asked to input again, if yes - send message with asked to select date of departure.
         """
         home = message.text
+        logger.info("user=%s ввёл город отправления: %s", message.from_user.id, home)
         answer = CheckData().check_city(home)
         if answer == True:
             users_state[message.chat.id].search_request_data.append_home(home)
@@ -756,6 +783,7 @@ if __name__ == "__main__":
         """
         result, key, step = DetailedTelegramCalendar().process(c.data)
         if not result and key:
+            logger.info("user=%s шаг календаря: %s", c.from_user.id, step)
             try:
                 bot.edit_message_text(
                     f"Выбери:",
@@ -769,6 +797,7 @@ if __name__ == "__main__":
             users_state[c.message.chat.id].state
             == UserStates.WAIT_FOR_FIRST_DATE_FROM_PERIOD_HOME
         ):
+            logger.info("user=%s выбрал дату вылета: %s", c.from_user.id, result)
             answer_bool = users_state[
                 c.message.chat.id
             ].search_request_data.set_start_date(first_value=result, second_value=None)
@@ -796,6 +825,7 @@ if __name__ == "__main__":
             users_state[c.message.chat.id].state
             == UserStates.WAIT_FOR_SECOND_DATE_FROM_PERIOD_HOME
         ):
+            logger.info("user=%s выбрал вторую дату периода вылета: %s", c.from_user.id, result)
             answer_bool = users_state[
                 c.message.chat.id
             ].search_request_data.set_start_date(
@@ -1093,6 +1123,7 @@ if __name__ == "__main__":
         Func is called when user pressed on "Кольцевой" button. Inside passed True to func append_circle
         and created calendar to select the date of last flight.
         """
+        logger.info("user=%s выбрал кольцевой маршрут", callback_query.from_user.id)
         try:
             users_state[callback_query.message.chat.id].state = (
                 UserStates.WAIT_FOR_FINISH_DEPARTURE_FIRST_FROM_PERIOD
@@ -1125,6 +1156,7 @@ if __name__ == "__main__":
     @bot.callback_query_handler(lambda callback_query: callback_query.data == "one_way")
     def one_way_handler(callback_query):
         # users_state[callback_query.message.chat_id].search_request_data.append_circle(False)
+        logger.info("user=%s выбрал маршрут в один конец", callback_query.from_user.id)
         try:
             users_state[callback_query.message.chat.id].state = (
                 UserStates.WAIT_FOR_FINISH_AIRPORT
@@ -1157,6 +1189,7 @@ if __name__ == "__main__":
         return True, users state is change on next and send message with asked to choose date for departure
         """
         airport = message.text
+        logger.info("user=%s ввёл конечный город: %s", message.from_user.id, airport)
         answer = CheckData().check_city(airport)
         if answer == True:
             answer = users_state[
