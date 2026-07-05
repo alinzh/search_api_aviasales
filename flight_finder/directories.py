@@ -77,6 +77,11 @@ class Directory:
             "DAD": "Дананг",
             "CNX": "Чиангмай",
             "AYT": "Анталья",
+            "SYD": "Сидней",
+            "MEL": "Мельбурн",
+            "BNE": "Брисбен",
+            "PER": "Перт",
+            "ADL": "Аделаида",
         }
         result.update(preferred)
         return result

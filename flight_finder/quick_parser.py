@@ -152,6 +152,36 @@ def _parse_period(text: str, today: date | None = None) -> tuple[date, date, str
     return date(year, month, 1), date(year, month, last_day), text[: month_match.start()] + " " + text[month_match.end() :]
 
 
+def _parse_ideas_dates(text: str, today: date | None = None) -> tuple[bool, date, date, date | None, date | None, str]:
+    """Parse date semantics for open-ended ideas search.
+
+    Ideas mode accepts both one-way and round-trip wording:
+    - `из СПб куда угодно в июле до 50000` -> one-way offers in July.
+    - `из СПб куда угодно в июле до 50000 и обратно` -> round-trip offers fully inside July.
+    - `из СПб куда угодно 06.07-14.07 до 50000 и обратно` -> outbound 06.07, return 14.07.
+    - `из СПб куда угодно туда 06.07-08.07 обратно 14.07-16.07 до 50000` -> flexible windows.
+
+    This keeps `и обратно` out of origin/destination extraction and prevents the
+    discovery mode from silently returning one-way tickets for a round-trip query.
+    """
+    today = today or date.today()
+    is_round_trip = bool(_ROUND_TRIP_RE.search(text))
+
+    if is_round_trip:
+        date_matches = list(_DATE_RANGE_RE.finditer(text))
+        if date_matches:
+            return _parse_roundtrip_dates(text, today=today)
+
+        # Fuzzy month + round-trip: both outbound and return are flexible inside
+        # the same month. Pairing later rejects return legs before the outbound.
+        date_from, date_to, cleaned = _parse_period(text, today=today)
+        cleaned = _strip_roundtrip_markers(cleaned)
+        return True, date_from, date_to, date_from, date_to, cleaned
+
+    date_from, date_to, cleaned = _parse_period(text, today=today)
+    return False, date_from, date_to, None, None, cleaned
+
+
 def _parse_price(text: str) -> tuple[int | None, str]:
     match = _PRICE_RE.search(text)
     if not match:
@@ -283,7 +313,7 @@ def parse_ideas_query(
     if not original:
         raise ParseError("Пустой запрос идей.")
 
-    date_from, date_to, cleaned = _parse_period(original, today=today)
+    is_round_trip, date_from, date_to, return_date_from, return_date_to, cleaned = _parse_ideas_dates(original, today=today)
     max_price, cleaned = _parse_price(cleaned)
     if max_price is None:
         raise ParseError("Для режима идей нужен бюджет. Пример: из СПб куда угодно в августе до 50000")
@@ -313,6 +343,9 @@ def parse_ideas_query(
         market=market,
         mode=SearchMode.IDEAS,
         raw_text=original,
+        return_to_origin=is_round_trip,
+        return_date_from=return_date_from,
+        return_date_to=return_date_to,
     )
 
 
@@ -360,6 +393,8 @@ def parse_multicity_query(
 
     Examples:
     - из СПб посетить Стамбул, Шанхай, Бангкок 06.07-25.07 по 2-4 дня до 120000
+    - из СПб в Сидней посетить Ханой, Бангкок, Куала-Лумпур 06.07-25.07 по 2-4 дня
+    - из СПб до Сиднея через Вьетнам, Таиланд 06.07-25.07
     - СПб: Стамбул, Шанхай, Бангкок 06.07-25.07
     - из LED через IST, SHA, BKK 06.07-25.07 без возврата
     """
@@ -374,51 +409,65 @@ def parse_multicity_query(
     max_duration, cleaned = _parse_duration(cleaned)
     min_stay, max_stay, cleaned = _parse_stay(cleaned)
 
-    return_to_origin = not re.search(r"без\s+возврата|в\s+одну\s+сторону|не\s+возвращ", cleaned, flags=re.IGNORECASE)
+    explicit_no_return = bool(re.search(r"без\s+возврата|в\s+одну\s+сторону|не\s+возвращ", cleaned, flags=re.IGNORECASE))
+    return_to_origin = not explicit_no_return
     cleaned = re.sub(r"без\s+возврата|в\s+одну\s+сторону|не\s+возвращ\w*", " ", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\b(хочу|надо|нужно|маршрут|найди|подбери|самый|дешевый|дешёвый|порядок|города|городов)\b", " ", cleaned, flags=re.IGNORECASE)
     cleaned = " ".join(cleaned.split())
 
-    origin_text, cities_text = _extract_multicity_origin_and_cities(cleaned)
+    origin_text, final_text, cities_text = _extract_multicity_origin_final_and_cities(cleaned)
     origin = directory.resolve_city_code(origin_text)
     if not origin:
         raise ParseError(f"Не знаю стартовый город: {origin_text!r}. Добавь alias в data/city2code.json.")
     origin_label, origin_code = origin
     origin_point = CityPoint(origin_label, origin_code)
 
+    final_destination: CityPoint | None = None
+    if final_text:
+        final_destination = _resolve_multicity_point(final_text, directory)
+        if not final_destination:
+            raise ParseError(f"Не знаю конечный город: {final_text!r}. Добавь alias в data/city2code.json.")
+        # Fixed finish changes the route shape from origin→permutation→origin
+        # to origin→permutation→final_destination.
+        return_to_origin = False
+
     city_tokens = _split_city_list(cities_text)
-    if len(city_tokens) < 2:
+    min_stopovers = 1 if final_destination else 2
+    if len(city_tokens) < min_stopovers:
         raise ParseError(
-            "Для unordered multi-city нужно минимум 2 города для посещения. "
-            "Пример: из СПб посетить Стамбул, Шанхай, Бангкок 06.07-25.07"
+            "Для multi-city с конечным городом нужен минимум 1 промежуточный город; "
+            "без конечного города — минимум 2 города для подбора порядка. "
+            "Пример: из СПб в Сидней посетить Ханой, Бангкок 06.07-25.07"
         )
 
     seen_codes = {origin_code}
+    if final_destination:
+        seen_codes.add(final_destination.code)
     visit_cities: list[CityPoint] = []
     unknown: list[str] = []
     for token in city_tokens:
-        city = directory.resolve_city_code(token)
+        city = _resolve_multicity_point(token, directory)
         if not city:
             unknown.append(token)
             continue
-        label, code = city
-        if code in seen_codes:
+        if city.code in seen_codes:
             continue
-        seen_codes.add(code)
-        visit_cities.append(CityPoint(label, code))
+        seen_codes.add(city.code)
+        visit_cities.append(city)
 
     if unknown:
-        raise ParseError(f"Не знаю города: {', '.join(unknown)}. Добавь aliases в data/city2code.json.")
-    if len(visit_cities) < 2:
-        raise ParseError("После удаления дублей осталось меньше 2 городов для посещения.")
+        raise ParseError(f"Не знаю города/страны: {', '.join(unknown)}. Добавь aliases в data/city2code.json или data/countries.json.")
+    if len(visit_cities) < min_stopovers:
+        raise ParseError("После удаления дублей осталось слишком мало промежуточных городов.")
     if len(visit_cities) > 7:
-        raise ParseError("Пока ограничил unordered multi-city до 7 городов: иначе слишком много API-запросов и перестановок.")
+        raise ParseError("Пока ограничил unordered multi-city до 7 промежуточных городов: иначе слишком много API-запросов и перестановок.")
 
     return MultiCityQuery(
         origin=origin_point,
         visit_cities=tuple(visit_cities),
         date_from=date_from,
         date_to=date_to,
+        final_destination=final_destination,
         min_stay_days=min_stay,
         max_stay_days=max_stay,
         return_to_origin=return_to_origin,
@@ -431,21 +480,48 @@ def parse_multicity_query(
     )
 
 
-def _extract_multicity_origin_and_cities(text: str) -> tuple[str, str]:
+def _extract_multicity_origin_final_and_cities(text: str) -> tuple[str, str | None, str]:
+    """Extract origin, optional fixed finish, and unordered stopovers."""
+    with_finish_patterns = [
+        r"(?:^|\s)из\s+(?P<origin>.+?)\s+(?:в|до)\s+(?P<final>.+?)\s+(?:по\s+пути\s+)?(?:посетить|через|с\s+посещением|заехать\s+в|побывать\s+в)\s+(?P<cities>.+)$",
+        r"(?:^|\s)из\s+(?P<origin>.+?)\s+(?:через|с\s+посещением)\s+(?P<cities>.+?)\s+(?:в|до)\s+(?P<final>.+)$",
+    ]
+    for pattern in with_finish_patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return match.group("origin").strip(), match.group("final").strip(), match.group("cities").strip()
+
     patterns = [
-        r"(?:^|\s)из\s+(?P<origin>.+?)\s+(?:посетить|через|по|в)\s+(?P<cities>.+)$",
+        r"(?:^|\s)из\s+(?P<origin>.+?)\s+(?:посетить|через|по)\s+(?P<cities>.+)$",
         r"(?P<origin>.+?)\s*:\s*(?P<cities>.+)$",
         r"(?P<origin>.+?)\s*(?:->|→)\s*(?P<cities>.+)$",
     ]
     for pattern in patterns:
         match = re.search(pattern, text, flags=re.IGNORECASE)
         if match:
-            return match.group("origin").strip(), match.group("cities").strip()
+            return match.group("origin").strip(), None, match.group("cities").strip()
     raise ParseError(
-        "Не понял multi-city формат. Пример: "
-        "из СПб посетить Стамбул, Шанхай, Бангкок 06.07-25.07 по 2-4 дня"
+        "Не понял multi-city формат. Примеры: "
+        "из СПб посетить Стамбул, Шанхай, Бангкок 06.07-25.07 или "
+        "из СПб в Сидней посетить Ханой, Бангкок 06.07-25.07"
     )
 
+
+def _resolve_multicity_point(value: str, directory: Directory) -> CityPoint | None:
+    """Resolve a stopover to a concrete city code.
+
+    If the user types a country like `Вьетнам` or `Таиланд`, use the first
+    configured city from data/countries.json as a default stopover city.
+    """
+    city = directory.resolve_city_code(value)
+    if city:
+        label, code = city
+        return CityPoint(label, code)
+    destination = directory.resolve_destination(value)
+    if destination and destination.codes:
+        code = destination.codes[0]
+        return CityPoint(directory.label_for_code(code), code)
+    return None
 
 def _split_city_list(value: str) -> list[str]:
     value = re.sub(r"\b(посетить|через|побывать|заехать|и)\b", " ", value, flags=re.IGNORECASE)

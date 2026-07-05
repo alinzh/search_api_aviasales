@@ -70,6 +70,25 @@ class TravelpayoutsClient:
         offers = self.search(query, directory, limit_per_destination=limit_per_destination)
         return self._diversify_ideas(offers, directory, max_results=max_results)
 
+    def search_ideas_round_trip(
+        self,
+        query: SearchQuery,
+        directory: Directory,
+        limit_per_destination: int = 6,
+        max_results: int = 10,
+    ) -> list[RoundTripOffer]:
+        """Open-ended budget search for round trips.
+
+        In ideas mode the budget is user-facing total budget. For `и обратно`,
+        it must be applied to outbound + inbound together, not to each leg.
+        """
+        routes = self.search_round_trip(
+            query,
+            directory,
+            limit_per_destination=max(limit_per_destination, max_results * 2),
+        )
+        return self._diversify_roundtrip_ideas(routes, directory, max_results=max_results)
+
     @staticmethod
     def _diversify_ideas(offers: list[FlightOffer], directory: Directory, max_results: int = 10) -> list[FlightOffer]:
         # Keep only the best offer per destination city first.
@@ -98,6 +117,36 @@ class TravelpayoutsClient:
                 continue
             selected.append(offer)
             selected_codes.add(offer.destination)
+            if len(selected) >= max_results:
+                break
+        return selected
+
+    @staticmethod
+    def _diversify_roundtrip_ideas(routes: list[RoundTripOffer], directory: Directory, max_results: int = 10) -> list[RoundTripOffer]:
+        # Keep only the best round-trip per destination first.
+        best_by_destination: dict[str, RoundTripOffer] = {}
+        for route in sorted(routes, key=lambda item: (item.score, item.total_price)):
+            best_by_destination.setdefault(route.destination.code, route)
+
+        pool = sorted(best_by_destination.values(), key=lambda item: (item.score, item.total_price))
+        selected: list[RoundTripOffer] = []
+        used_countries: set[str] = set()
+
+        for route in pool:
+            country = directory.idea_profile(route.destination.code).get("country", "Другое")
+            if country in used_countries:
+                continue
+            selected.append(route)
+            used_countries.add(country)
+            if len(selected) >= max_results:
+                return selected
+
+        selected_codes = {route.destination.code for route in selected}
+        for route in pool:
+            if route.destination.code in selected_codes:
+                continue
+            selected.append(route)
+            selected_codes.add(route.destination.code)
             if len(selected) >= max_results:
                 break
         return selected
@@ -206,9 +255,12 @@ class TravelpayoutsClient:
         if not self.token:
             raise RuntimeError("AVIASALES_TOKEN пустой. Укажи токен в .env")
 
-        points = (query.origin, *query.visit_cities)
+        route_points = (query.origin, *query.visit_cities)
+        if query.final_destination and query.final_destination.code not in {point.code for point in route_points}:
+            route_points = (*route_points, query.final_destination)
+
         offers_by_pair: dict[tuple[str, str], list[FlightOffer]] = {}
-        for origin, destination in itertools.permutations(points, 2):
+        for origin, destination in itertools.permutations(route_points, 2):
             pair_query = SearchQuery(
                 origin_label=origin.label,
                 origin_code=origin.code,
@@ -230,7 +282,12 @@ class TravelpayoutsClient:
 
         routes: list[MultiCityRoute] = []
         for order in itertools.permutations(query.visit_cities):
-            sequence = (query.origin, *order, query.origin) if query.return_to_origin else (query.origin, *order)
+            if query.final_destination:
+                sequence = (query.origin, *order, query.final_destination)
+            elif query.return_to_origin:
+                sequence = (query.origin, *order, query.origin)
+            else:
+                sequence = (query.origin, *order)
             best_for_order = self._best_route_for_sequence(
                 sequence=sequence,
                 offers_by_pair=offers_by_pair,

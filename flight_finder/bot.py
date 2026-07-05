@@ -15,7 +15,9 @@ from .formatters import (
     error_text,
     examples_text,
     idea_card,
+    idea_roundtrip_card,
     ideas_help_text,
+    ideas_roundtrip_summary_text,
     ideas_started_text,
     ideas_summary_text,
     multicity_help_text,
@@ -225,6 +227,22 @@ def run_ideas_in_thread(
     def worker() -> None:
         bot.send_message(chat_id, ideas_started_text(query), reply_markup=restart_menu())
         try:
+            if query.is_round_trip:
+                roundtrip_offers = client.search_ideas_round_trip(
+                    query,
+                    directory,
+                    limit_per_destination=6,
+                    max_results=max(top_limit, 8),
+                )
+                if not roundtrip_offers:
+                    bot.send_message(chat_id, no_roundtrip_results_text(query), reply_markup=main_menu())
+                    return
+                roundtrip_offers = roundtrip_offers[:max(top_limit, 8)]
+                bot.send_message(chat_id, ideas_roundtrip_summary_text(query, roundtrip_offers, directory), reply_markup=after_results_menu())
+                for idx, offer in enumerate(roundtrip_offers, start=1):
+                    bot.send_message(chat_id, idea_roundtrip_card(offer, directory, idx), reply_markup=roundtrip_menu(offer))
+                return
+
             offers = client.search_ideas(query, directory, limit_per_destination=3, max_results=max(top_limit, 8))
         except Exception as exc:
             logger.exception("Ideas search failed")

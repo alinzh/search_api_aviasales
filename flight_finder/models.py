@@ -88,6 +88,7 @@ class MultiCityQuery:
     visit_cities: tuple[CityPoint, ...]
     date_from: date
     date_to: date
+    final_destination: CityPoint | None = None
     min_stay_days: int = 1
     max_stay_days: int | None = 7
     return_to_origin: bool = True
@@ -105,7 +106,9 @@ class MultiCityQuery:
             f"посетить: {cities}",
             f"окно: {self.date_from:%d.%m.%Y}–{self.date_to:%d.%m.%Y}",
         ]
-        if self.return_to_origin:
+        if self.final_destination:
+            parts.append(f"финиш: {self.final_destination.label}")
+        elif self.return_to_origin:
             parts.append("с возвратом в стартовый город")
         else:
             parts.append("без обязательного возврата")

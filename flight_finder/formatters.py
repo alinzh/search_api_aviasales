@@ -65,18 +65,28 @@ def ideas_help_text() -> str:
         "Форматы:\n"
         "• <code>из СПб куда угодно в августе до 50000</code>\n"
         "• <code>куда слетать из Москвы 10.08-20.08 до 60000</code>\n"
-        "• <code>идеи из LED в июле до 40000 до 1 пересадки</code>\n\n"
-        "Важно: бюджет здесь считается на один перелёт в одну сторону. "
-        "Для туда-обратно используй режим поиска по стране с <code>и обратно</code>."
+        "• <code>идеи из LED в июле до 40000 до 1 пересадки</code>\n"
+        "• <code>из СПб куда угодно в июле до 50000 и обратно</code>\n\n"
+        "Важно: для обычного запроса бюджет считается на один перелёт. "
+        "Если есть <code>и обратно</code>, бюджет считается за пару туда+обратно."
     )
 
 
 def ideas_started_text(query: SearchQuery) -> str:
+    if query.is_round_trip:
+        tail = (
+            "Проверю разные направления из базы идей, для каждого соберу пару туда+обратно "
+            "и отфильтрую по общему бюджету за оба перелёта."
+        )
+    else:
+        tail = (
+            "Проверю разные направления из базы идей и специально разбавлю выдачу по странам, "
+            "чтобы не показать 10 похожих городов подряд."
+        )
     return (
         "🎲 <b>Ищу идеи в бюджет</b>\n"
         f"{html.escape(query.describe())}\n\n"
-        "Проверю разные направления из базы идей и специально разбавлю выдачу по странам, "
-        "чтобы не показать 10 похожих городов подряд."
+        f"{tail}"
     )
 
 
@@ -104,6 +114,24 @@ def ideas_summary_text(query: SearchQuery, offers: list[FlightOffer], directory:
     )
 
 
+def ideas_roundtrip_summary_text(query: SearchQuery, offers: list[RoundTripOffer], directory: Directory) -> str:
+    if not offers:
+        return no_roundtrip_results_text(query)
+    countries: list[str] = []
+    for offer in offers:
+        country = directory.idea_profile(offer.destination.code).get("country", "Другое")
+        if country not in countries:
+            countries.append(country)
+    best = offers[0]
+    return (
+        f"✅ <b>Нашёл {len(offers)} идей туда-обратно</b>\n"
+        f"Запрос: {html.escape(query.describe())}\n\n"
+        f"💸 Лучший вариант: {html.escape(best.destination.label)} — <b>{money(best.total_price)}</b> за туда+обратно\n"
+        f"🌍 Страны/направления: {html.escape(', '.join(countries[:8]))}\n\n"
+        "Ниже — разнообразные направления. В каждой карточке показаны оба плеча и общая цена."
+    )
+
+
 def idea_card(offer: FlightOffer, directory: Directory, index: int) -> str:
     profile = directory.idea_profile(offer.destination)
     country = profile.get("country", "Другое")
@@ -117,6 +145,26 @@ def idea_card(offer: FlightOffer, directory: Directory, index: int) -> str:
         f"🕒 {dep}, в пути {offer.duration_hm}\n"
         f"🔁 {offer.transfers_label}\n"
         f"✈️ {html.escape(airline)}"
+    )
+
+
+def idea_roundtrip_card(item: RoundTripOffer, directory: Directory, index: int) -> str:
+    profile = directory.idea_profile(item.destination.code)
+    country = profile.get("country", "Другое")
+    category = profile.get("category", "вариант")
+    out = item.outbound
+    back = item.inbound
+    out_dep = out.departure_at.strftime("%d.%m.%Y %H:%M") if out.departure_at else "дата?"
+    back_dep = back.departure_at.strftime("%d.%m.%Y %H:%M") if back.departure_at else "дата?"
+    return (
+        f"<b>#{index} {html.escape(item.destination.label)} туда-обратно</b> — <b>{money(item.total_price)}</b>\n"
+        f"🌍 {html.escape(country)} · {html.escape(category)}\n\n"
+        f"➡️ <b>Туда</b>: {html.escape(out.origin_label)} → {html.escape(out.destination_label)}\n"
+        f"🕒 {out_dep}, {out.duration_hm}, {out.transfers_label}, {html.escape(directory.airline_label(out.airline))}\n"
+        f"💸 {money(out.price)}\n\n"
+        f"⬅️ <b>Обратно</b>: {html.escape(back.origin_label)} → {html.escape(back.destination_label)}\n"
+        f"🕒 {back_dep}, {back.duration_hm}, {back.transfers_label}, {html.escape(directory.airline_label(back.airline))}\n"
+        f"💸 {money(back.price)}"
     )
 
 
