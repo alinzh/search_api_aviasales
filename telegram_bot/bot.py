@@ -1,5 +1,11 @@
 import datetime
+import json
+import logging
+import os
+import sys
 from enum import IntEnum
+
+from dotenv import load_dotenv
 
 import telebot
 import text_for_send_message_bot
@@ -12,9 +18,26 @@ from search.serchrequestdata import SearchRequestData
 from utils.check_answer import CheckData
 
 if __name__ == "__main__":
+    load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        stream=sys.stdout,
+    )
+    logger = logging.getLogger("bot")
+    logging.getLogger("telebot").setLevel(logging.INFO)
     telebot.apihelper.ENABLE_MIDDLEWARE = True
     telebot.apihelper.SESSION_TIME_TO_LIVE = 5 * 60
-    bot = telebot.TeleBot("TOKEN", parse_mode=None)
+    bot = telebot.TeleBot(os.environ["TELEGRAM_BOT_TOKEN"], parse_mode=None)
+    logger.info("Бот запущен, token=%s...%s", os.environ["TELEGRAM_BOT_TOKEN"][:8], os.environ["TELEGRAM_BOT_TOKEN"][-4:])
+
+    _RESTART_BUTTON = types.InlineKeyboardButton("🔄 Начать заново", callback_data="compute_route")
+
+    def _with_restart(markup):
+        if isinstance(markup, str):
+            markup = types.InlineKeyboardMarkup.de_json(json.loads(markup))
+        markup.add(_RESTART_BUTTON)
+        return markup
 
     # Storage of flag that users enter (here is all users, who is typing something at the moment).
     # Here is stored instance of class that can be accesed by user id
@@ -61,7 +84,7 @@ if __name__ == "__main__":
     # Here is created sql database and exported date which was in tables for some reasons,
     # for example - download updates or bot falling
 
-    # sql_users.create_table_in_database()
+    sql_users.create_table_in_database()
     date_from_sql_users = sql_users.get_all_data_from_table()
     date_from_sql_users_airport = sql_users.get_all_data_from_users_airport()
     date_from_sql_users_tranzit = sql_users.get_all_data_from_users_tranzit()
@@ -127,6 +150,7 @@ if __name__ == "__main__":
         Sending hello-message to user.
         Added to SQL user_id, username, full_name (if not hidden), data about route is empty on start.
         """
+        logger.info("user=%s @%s /start", message.from_user.id, message.from_user.username)
         markup = types.InlineKeyboardMarkup()
         markup.add(
             types.InlineKeyboardButton("Начать поиск", callback_data="compute_route")
@@ -170,6 +194,7 @@ if __name__ == "__main__":
 
         Also here is rest data abot route users, how already used bot, but decide to start new search
         """
+        logger.info("user=%s начал подбор маршрута", callback_query.from_user.id)
         users_state[callback_query.message.chat.id] = UserState(
             callback_query.message.chat.id
         )
@@ -201,6 +226,7 @@ if __name__ == "__main__":
             "Напиши название города отправления. \n\n<i>Например - Москва или "
             "Санкт-Петербург</i>.",
             parse_mode="HTML",
+            reply_markup=_with_restart(types.InlineKeyboardMarkup()),
         )
 
     @bot.message_handler(
@@ -216,6 +242,7 @@ if __name__ == "__main__":
         Also here is checking spelling of city and checking city does not repeat.
         """
         airport = message.text
+        logger.info("user=%s ввёл промежуточный город: %s", message.from_user.id, airport)
         answer = CheckData().check_city(airport)
         answer_2 = CheckData().check_if_city_in_route(
             airport, users_state[message.chat.id].search_request_data.airports
@@ -239,7 +266,7 @@ if __name__ == "__main__":
                 message.chat.id,
                 text="🕘Напиши минимальный период транзита через этот город. \n\n<i>Пиши в "
                 "формате дней, например - '5д', либо в формате часов, например - '10ч'.</i>",
-                reply_markup=markup,
+                reply_markup=_with_restart(markup),
                 parse_mode="HTML",
             )
         elif answer != True:
@@ -247,6 +274,7 @@ if __name__ == "__main__":
                 message.chat.id,
                 text="⚠️Название города указано с ошибками, проверь правописание и напиши еще "
                 "раз в И.П. с заглавной буквы.",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         elif check_on_len_route != True:
             markup = types.InlineKeyboardMarkup()
@@ -263,12 +291,13 @@ if __name__ == "__main__":
             bot.send_message(
                 message.chat.id,
                 text="⚠️Лимит на количество городов исчерпан. \nНачнем поиск?",
-                reply_markup=markup,
+                reply_markup=_with_restart(markup),
             )
         else:
             bot.send_message(
                 message.chat.id,
                 text="⚠️Этот город уже добавлен в маршрут. Выбери другой.",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(
@@ -286,7 +315,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             sql_users.update_user_state(
@@ -312,7 +342,7 @@ if __name__ == "__main__":
             bot.reply_to(
                 callback_query.message,
                 text="Супер! Что делаем дальше?",
-                reply_markup=markup,
+                reply_markup=_with_restart(markup),
             )
 
     @bot.message_handler(
@@ -326,6 +356,7 @@ if __name__ == "__main__":
         This filter is optional, default time for tranzit is 60 min.
         """
         time_tranzit = message.text
+        logger.info("user=%s ввёл транзит: %s", message.from_user.id, time_tranzit)
         answer = users_state[message.chat.id].search_request_data.append_time_tranzit(
             time_tranzit
         )
@@ -351,14 +382,15 @@ if __name__ == "__main__":
                 )
             )
             bot.send_message(
-                message.chat.id, text="Супер! Что делаем дальше?", reply_markup=markup
+                message.chat.id, text="Супер! Что делаем дальше?", reply_markup=_with_restart(markup)
             )
         elif answer == False:
             bot.send_message(
                 message.chat.id,
                 text="⚠️Транзит в неверном формате.\nВведи еще раз, либо в днях - число с буквой "
-                "'д', ибо в часах - число с буквой 'ч'.\n<b>Например '7д' или '12ч'.</b>",
+                "'д', либо в часах - число с буквой 'ч'.\n<b>Например '7д' или '12ч'.</b>",
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(
@@ -381,7 +413,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             bot.reply_to(
@@ -390,6 +423,7 @@ if __name__ == "__main__":
                 "в хронологическом порядке. Модель определяет лучшую комбинацию исходя из фильтров, цены или времени "
                 "в полёте.</i>",
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(
@@ -411,7 +445,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             bot.reply_to(
@@ -419,6 +454,7 @@ if __name__ == "__main__":
                 "Напиши название авиакомпании, которую не стоит добавлять в подборку. "
                 "\n\n<i>Пиши с заглавной буквы, например - Победа или Азимут.</i>",
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.message_handler(
@@ -431,6 +467,7 @@ if __name__ == "__main__":
         Spelling is checking immediately.
         """
         hate_airl = message.text
+        logger.info("user=%s исключил авиакомпанию: %s", message.from_user.id, hate_airl)
         answer = users_state[message.chat.id].search_request_data.append_hate_airl(
             hate_airl
         )
@@ -456,7 +493,7 @@ if __name__ == "__main__":
                 )
             )
             bot.send_message(
-                message.chat.id, text="Супер! Что делаем дальше?", reply_markup=markup
+                message.chat.id, text="Супер! Что делаем дальше?", reply_markup=_with_restart(markup)
             )
         else:
             bot.send_message(
@@ -464,6 +501,7 @@ if __name__ == "__main__":
                 text="⚠️Название авиакомпании написано некорректно. Попробуй еще раз, пиши с "
                 "заглавной буквы.\nЕсли сомневаешься - посмотри официальное название авиакомпании, например:"
                 "\n'Ред Вингс' или 'Северный Ветер (Nordwind Airlines)'",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(
@@ -478,6 +516,7 @@ if __name__ == "__main__":
 
         Next: one of best_in_time (routes) and one of best_in_price (routes) are calculated and sending to user.
         """
+        user_id = callback_query.from_user.id
         try:
             users_state[callback_query.message.chat.id].state = UserStates.WAIT_FOR_END
             sql_users.update_user_state(
@@ -485,9 +524,11 @@ if __name__ == "__main__":
                 users_state[callback_query.message.chat.id].state,
             )
         except:
+            logger.exception("user=%s ошибка в start_search_handler", user_id)
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             sr = Search()
@@ -502,12 +543,17 @@ if __name__ == "__main__":
                 tranzit,
                 hate_airl,
             ) = users_state[callback_query.message.chat.id].search_request_data.start()
+            logger.info(
+                "user=%s ЗАПУСК ПОИСКА: %s→%s, период вылета %s-%s, города=%s, транзит=%s, исключения=%s",
+                user_id, home, finish, start_period, end_period, airports, tranzit, hate_airl,
+            )
             bot.send_message(
                 callback_query.message.chat.id,
                 text=text_for_send_message_bot.message_search_began_wait(
                     home, finish, start_period, end_period, airports, tranzit, hate_airl
                 ),
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
             _, all_routes = sr.compute_all_routes(
                 start_date,
@@ -522,18 +568,15 @@ if __name__ == "__main__":
             )
             best_routes_price, _ = sr.find_cheapest_route(all_routes)
             best_routes_time, _ = sr.find_short_in_time_route(all_routes)
+            logger.info(
+                "user=%s ПОИСК ЗАВЕРШЁН: найдено %d маршрутов", user_id, len(all_routes)
+            )
             if best_routes_price == [] and best_routes_time == []:
                 markup = types.InlineKeyboardMarkup()
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Попробовать другие параметры поиска!",
-                        callback_data="compute_route",
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     f"Ого!😳 С такими жесткими фильтрами не нашлось ни одного маршрута...\n\nПопробуем что-то поменять?",
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
                 sql_users.delete_airports(callback_query.message.chat.id)
                 sql_users.delete_tranzit(callback_query.message.chat.id)
@@ -556,11 +599,6 @@ if __name__ == "__main__":
                         "Еще быстрых", callback_data="show_next_fast_flight"
                     )
                 )
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Начать новый поиск!", callback_data="compute_route"
-                    )
-                )
                 suggested_by_price = next(
                     users_state[callback_query.message.chat.id].best_in_price
                 )
@@ -572,7 +610,7 @@ if __name__ == "__main__":
                     text=text_for_send_message_bot.answer_with_tickets_for_user(
                         suggested_by_price, suggested_by_time
                     ),
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
                 sql_users.delete_airports(callback_query.message.chat.id)
@@ -587,6 +625,7 @@ if __name__ == "__main__":
         This func is sending next best route by time (total flights time for all rote). It is getting data from
         instance of class UserState and sending to user.
         """
+        logger.info("user=%s запросил следующий дешёвый вариант", callback_query.from_user.id)
         try:
             users_state[callback_query.message.chat.id].state = (
                 UserStates.WAIT_FOR_MORE_TICKETS
@@ -598,7 +637,8 @@ if __name__ == "__main__":
         except:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             try:
@@ -607,15 +647,10 @@ if __name__ == "__main__":
                 )
             except:
                 markup = types.InlineKeyboardMarkup()
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Продолжить поиск!", callback_data="compute_route"
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     f"Увы, вы просмотрели все билеты.\nПродолжим поиск с другими фильтрами?",
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
             else:
                 markup = types.InlineKeyboardMarkup()
@@ -629,17 +664,12 @@ if __name__ == "__main__":
                         "Еще быстрых", callback_data="show_next_fast_flight"
                     )
                 )
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Начать новый поиск!", callback_data="compute_route"
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     text=text_for_send_message_bot.message_answer_tickets_more_cheap(
                         suggested_by_price
                     ),
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
 
@@ -651,6 +681,7 @@ if __name__ == "__main__":
         This func is sending next best route by time (total flights time for all rote). It is getting data from
         instance of class UserState and sending to user.
         """
+        logger.info("user=%s запросил следующий быстрый вариант", callback_query.from_user.id)
         try:
             users_state[callback_query.message.chat.id].state = (
                 UserStates.WAIT_FOR_MORE_TICKETS
@@ -662,7 +693,8 @@ if __name__ == "__main__":
         except:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             try:
@@ -671,15 +703,10 @@ if __name__ == "__main__":
                 )
             except:
                 markup = types.InlineKeyboardMarkup()
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Продолжить поиск!", callback_data="compute_route"
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     f"Увы, вы просмотрели все билеты.\nПродолжим поиск с другими фильтрами?",
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
             else:
                 markup = types.InlineKeyboardMarkup()
@@ -693,17 +720,12 @@ if __name__ == "__main__":
                         "Еще быстрых", callback_data="show_next_fast_flight"
                     )
                 )
-                markup.add(
-                    types.InlineKeyboardButton(
-                        "Начать новый поиск!", callback_data="compute_route"
-                    )
-                )
                 bot.reply_to(
                     callback_query.message,
                     text=text_for_send_message_bot.message_answer_tickets_more_short(
                         suggested_by_time
                     ),
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
 
@@ -717,6 +739,7 @@ if __name__ == "__main__":
         If not - send message with asked to input again, if yes - send message with asked to select date of departure.
         """
         home = message.text
+        logger.info("user=%s ввёл город отправления: %s", message.from_user.id, home)
         answer = CheckData().check_city(home)
         if answer == True:
             users_state[message.chat.id].search_request_data.append_home(home)
@@ -729,18 +752,19 @@ if __name__ == "__main__":
             calendar, step = DetailedTelegramCalendar(
                 locale="ru",
                 min_date=datetime.date.today(),
-                max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+                max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
             ).build()
             bot.send_message(
                 message.chat.id,
                 text=f"Выбери дату или период вылета.",
-                reply_markup=calendar,
+                reply_markup=_with_restart(calendar),
             )
         else:
             bot.send_message(
                 message.chat.id,
                 text="⚠️Название города указано с ошибками, проверь правописание и напиши "
                 "еще раз в И.П. с заглавной буквы",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.callback_query_handler(func=DetailedTelegramCalendar.func())
@@ -752,12 +776,13 @@ if __name__ == "__main__":
         """
         result, key, step = DetailedTelegramCalendar().process(c.data)
         if not result and key:
+            logger.info("user=%s шаг календаря: %s", c.from_user.id, step)
             try:
                 bot.edit_message_text(
                     f"Выбери:",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=key,
+                    reply_markup=_with_restart(key),
                 )
             except:
                 pass
@@ -765,6 +790,7 @@ if __name__ == "__main__":
             users_state[c.message.chat.id].state
             == UserStates.WAIT_FOR_FIRST_DATE_FROM_PERIOD_HOME
         ):
+            logger.info("user=%s выбрал дату вылета: %s", c.from_user.id, result)
             answer_bool = users_state[
                 c.message.chat.id
             ].search_request_data.set_start_date(first_value=result, second_value=None)
@@ -785,13 +811,14 @@ if __name__ == "__main__":
                     f"датой начала периода.",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
 
         elif result and (
             users_state[c.message.chat.id].state
             == UserStates.WAIT_FOR_SECOND_DATE_FROM_PERIOD_HOME
         ):
+            logger.info("user=%s выбрал вторую дату периода вылета: %s", c.from_user.id, result)
             answer_bool = users_state[
                 c.message.chat.id
             ].search_request_data.set_start_date(
@@ -820,7 +847,7 @@ if __name__ == "__main__":
                     f"<i>Напиши период заново или оставь только первую дату для вылета.</i>",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
             else:
@@ -843,7 +870,7 @@ if __name__ == "__main__":
                     f"\nВ один конец - аэропорт вылета не совпадает с с аэропортом прилета.</i>",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                     parse_mode="HTML",
                 )
 
@@ -880,7 +907,7 @@ if __name__ == "__main__":
                     f"датой начала периода.",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
             else:
                 users_state[c.message.chat.id].state = (
@@ -893,7 +920,7 @@ if __name__ == "__main__":
                     locale="ru",
                     min_date=datetime.date.today(),
                     max_date=datetime.datetime.strptime(
-                        "2024.06.01", "%Y.%m.%d"
+                        "2027.12.31", "%Y.%m.%d"
                     ).date(),
                 ).build()
                 bot.edit_message_text(
@@ -901,7 +928,7 @@ if __name__ == "__main__":
                     f"\n\n<i>Выбери дату или период заново</i>",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=calendar,
+                    reply_markup=_with_restart(calendar),
                     parse_mode="HTML",
                 )
 
@@ -939,7 +966,7 @@ if __name__ == "__main__":
                         locale="ru",
                         min_date=datetime.date.today(),
                         max_date=datetime.datetime.strptime(
-                            "2024.06.01", "%Y.%m.%d"
+                            "2027.12.31", "%Y.%m.%d"
                         ).date(),
                     ).build()
                     users_state[c.message.chat.id].state = (
@@ -954,7 +981,7 @@ if __name__ == "__main__":
                         f"маршруте был не более 4 недель.",
                         c.message.chat.id,
                         c.message.message_id,
-                        reply_markup=calendar,
+                        reply_markup=_with_restart(calendar),
                         parse_mode="HTML",
                     )
             else:
@@ -968,7 +995,7 @@ if __name__ == "__main__":
                     locale="ru",
                     min_date=datetime.date.today(),
                     max_date=datetime.datetime.strptime(
-                        "2024.06.01", "%Y.%m.%d"
+                        "2027.12.31", "%Y.%m.%d"
                     ).date(),
                 ).build()
                 bot.edit_message_text(
@@ -976,7 +1003,7 @@ if __name__ == "__main__":
                     f"<i>Выбери дату или период заново</i>",
                     c.message.chat.id,
                     c.message.message_id,
-                    reply_markup=calendar,
+                    reply_markup=_with_restart(calendar),
                     parse_mode="HTML",
                 )
 
@@ -998,12 +1025,12 @@ if __name__ == "__main__":
         calendar, step = DetailedTelegramCalendar(
             locale="ru",
             min_date=datetime.date.today(),
-            max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+            max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
         ).build()
         bot.send_message(
             callback_query.message.chat.id,
             text=f"Выбери дату окончания периода.",
-            reply_markup=calendar,
+            reply_markup=_with_restart(calendar),
         )
 
     @bot.callback_query_handler(
@@ -1024,12 +1051,12 @@ if __name__ == "__main__":
         calendar, step = DetailedTelegramCalendar(
             locale="ru",
             min_date=datetime.date.today(),
-            max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+            max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
         ).build()
         bot.send_message(
             callback_query.message.chat.id,
             text=f"Выбери дату окончания периода.",
-            reply_markup=calendar,
+            reply_markup=_with_restart(calendar),
         )
 
     @bot.callback_query_handler(
@@ -1050,12 +1077,12 @@ if __name__ == "__main__":
         calendar, step = DetailedTelegramCalendar(
             locale="ru",
             min_date=datetime.date.today(),
-            max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+            max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
         ).build()
         bot.send_message(
             callback_query.message.chat.id,
             text=f"Выбери дату или период вылета.",
-            reply_markup=calendar,
+            reply_markup=_with_restart(calendar),
         )
 
     @bot.callback_query_handler(
@@ -1079,7 +1106,7 @@ if __name__ == "__main__":
             callback_query.message.chat.id,
             text="Выбери, какой у тебя маршрут.\n\n<i>Кольцевой - с возвращением в первый пункт вылета. \nВ один "
             "конец - аэропорт вылета не совпадает с с аэропортом прилета.</i>",
-            reply_markup=markup,
+            reply_markup=_with_restart(markup),
             parse_mode="HTML",
         )
 
@@ -1089,6 +1116,7 @@ if __name__ == "__main__":
         Func is called when user pressed on "Кольцевой" button. Inside passed True to func append_circle
         and created calendar to select the date of last flight.
         """
+        logger.info("user=%s выбрал кольцевой маршрут", callback_query.from_user.id)
         try:
             users_state[callback_query.message.chat.id].state = (
                 UserStates.WAIT_FOR_FINISH_DEPARTURE_FIRST_FROM_PERIOD
@@ -1101,7 +1129,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             users_state[
@@ -1110,17 +1139,18 @@ if __name__ == "__main__":
             calendar, step = DetailedTelegramCalendar(
                 locale="ru",
                 min_date=datetime.date.today(),
-                max_date=datetime.datetime.strptime("2024.06.01", "%Y.%m.%d").date(),
+                max_date=datetime.datetime.strptime("2027.12.31", "%Y.%m.%d").date(),
             ).build()
             bot.reply_to(
                 callback_query.message,
                 "Выбери дату последнего возвратного вылета.",
-                reply_markup=calendar,
+                reply_markup=_with_restart(calendar),
             )
 
     @bot.callback_query_handler(lambda callback_query: callback_query.data == "one_way")
     def one_way_handler(callback_query):
         # users_state[callback_query.message.chat_id].search_request_data.append_circle(False)
+        logger.info("user=%s выбрал маршрут в один конец", callback_query.from_user.id)
         try:
             users_state[callback_query.message.chat.id].state = (
                 UserStates.WAIT_FOR_FINISH_AIRPORT
@@ -1132,7 +1162,8 @@ if __name__ == "__main__":
         except KeyError:
             bot.send_message(
                 callback_query.message.chat.id,
-                "⚠️Упс, что-то пошло не так. Начни поиск заново командой /start",
+                "⚠️Упс, что-то пошло не так. Начни поиск заново 👇",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
         else:
             bot.reply_to(
@@ -1140,6 +1171,7 @@ if __name__ == "__main__":
                 "Напиши крайний город в твоём маршруте. \n\n<i>Модель сама определит "
                 "доступные аэропорта для него.</i>",
                 parse_mode="HTML",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.message_handler(
@@ -1153,6 +1185,7 @@ if __name__ == "__main__":
         return True, users state is change on next and send message with asked to choose date for departure
         """
         airport = message.text
+        logger.info("user=%s ввёл конечный город: %s", message.from_user.id, airport)
         answer = CheckData().check_city(airport)
         if answer == True:
             answer = users_state[
@@ -1169,13 +1202,13 @@ if __name__ == "__main__":
                     locale="ru",
                     min_date=datetime.date.today(),
                     max_date=datetime.datetime.strptime(
-                        "2024.06.01", "%Y.%m.%d"
+                        "2027.12.31", "%Y.%m.%d"
                     ).date(),
                 ).build()
                 bot.send_message(
                     message.chat.id,
                     text="Выбери дату вылета последнего полёта в маршруте",
-                    reply_markup=calendar,
+                    reply_markup=_with_restart(calendar),
                 )
             else:
                 markup = types.InlineKeyboardMarkup()
@@ -1187,7 +1220,7 @@ if __name__ == "__main__":
                     text="⚠️Название города прилета совпадает с городом вылета, такой фильтр "
                     "невозможен для маршрута в одну сторону. Если ты хочешь найти кольцевой маршрут, нажми на "
                     "кнопку Кольцевой.",
-                    reply_markup=markup,
+                    reply_markup=_with_restart(markup),
                 )
 
         else:
@@ -1195,6 +1228,7 @@ if __name__ == "__main__":
                 message.chat.id,
                 text="⚠️Название города указано с ошибками, проверь правописание "
                 "и напиши еще раз в И.П. с заглавной буквы",
+                reply_markup=_with_restart(types.InlineKeyboardMarkup()),
             )
 
     @bot.message_handler(commands=["request_to_sql"])

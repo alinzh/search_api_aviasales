@@ -1,5 +1,10 @@
 import json
+import os
 from datetime import datetime
+
+_CITY2CODE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "data", "city2code.json"
+)
 
 
 class CheckData:
@@ -11,7 +16,7 @@ class CheckData:
         """
         Check name of city for spelling mistakes.
         """
-        with open(r"../data/city2code.json", encoding="utf-8") as f:
+        with open(_CITY2CODE_PATH, encoding="utf-8") as f:
             data2 = json.load(f)
             if city in data2:
                 return True

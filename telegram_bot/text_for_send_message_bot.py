@@ -2,6 +2,22 @@
 Here is stores large texts for message to user.
 """
 
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+
+_MARKET = "https://www.aviasales.ru"
+_MARKER = os.environ.get("AVIASALES_MARKER", "")
+
+
+def _build_link(path: str) -> str:
+    url = f"{_MARKET}{path}"
+    if _MARKER:
+        url += ("&marker=" if "?" in url else "?marker=") + _MARKER
+    return url
+
 
 def message_hello():
     mes = "Привет!👋 \
@@ -74,7 +90,7 @@ def answer_with_tickets_for_user(suggested_by_price, suggested_by_time):
         departure = dict_with_data["time"]
         airline = dict_with_data["airlines"]
         time_in_sky = dict_with_data["time_in_sky"]
-        link = f"https://www.aviasales.ru{dict_with_data['link']}"
+        link = _build_link(dict_with_data["link"])
         route = (
             f"{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky}'"
             f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
@@ -90,7 +106,7 @@ def answer_with_tickets_for_user(suggested_by_price, suggested_by_time):
         departure = dict_with_data["time"]
         airline = dict_with_data["airlines"]
         time_in_sky = dict_with_data["time_in_sky"]
-        link = f"https://www.aviasales.ru{dict_with_data['link']}"
+        link = _build_link(dict_with_data["link"])
         route = (
             f"{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky}'"
             f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
@@ -112,7 +128,7 @@ def message_answer_tickets_more_cheap(suggested_by_price):
         departure = dict_with_data["time"]
         airline = dict_with_data["airlines"]
         time_in_sky = dict_with_data["time_in_sky"]
-        link = f"https://www.aviasales.ru{dict_with_data['link']}"
+        link = _build_link(dict_with_data["link"])
         route = (
             f"{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky}'"
             f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'
@@ -134,7 +150,7 @@ def message_answer_tickets_more_short(suggested_by_time):
         departure = dict_with_data["time"]
         airline = dict_with_data["airlines"]
         time_in_sky = dict_with_data["time_in_sky"]
-        link = f"https://www.aviasales.ru{dict_with_data['link']}"
+        link = _build_link(dict_with_data["link"])
         route = (
             f"{number}) Из <b>{first_airport}🛫</b>\nВ <b>{second_airport}🛬</b>\nЦена рейса: {price}₽\nОтправление {departure}\nПродолжительность рейса: {time_in_sky} мин'"
             f'\nАвиакомпания: {airline}\n<a href="{link}">✈️Ссылка на билет. Нажми!</a>\n'

@@ -85,9 +85,15 @@ class Route:
             price += flight["weight"]
         return price
 
-    def total_time(self) -> float:
-        duration = 0
-        for idx, time in enumerate(self.storage):
-            flight = time[2]
-            duration += flight["time_in_sky"]
-        return duration
+    def total_time(self) -> int:
+        if not self.storage:
+            return 0
+        first_flight = self.storage[0][2]
+        last_flight = self.storage[-1][2]
+        date_format = "%Y-%m-%dT%H:%M:%S%z"
+        start = datetime.strptime(first_flight["time"], date_format)
+        end = (
+            datetime.strptime(last_flight["time"], date_format)
+            + timedelta(minutes=last_flight["time_in_sky"])
+        )
+        return int(round((end - start).total_seconds() / 60))

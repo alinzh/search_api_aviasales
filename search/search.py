@@ -1,5 +1,6 @@
 import copy
 import json
+import os
 import time
 from itertools import combinations
 from typing import Any, Dict, List, Union
@@ -7,10 +8,17 @@ from typing import Any, Dict, List, Union
 import networkx as nx
 import numpy as np
 import requests
-from route import Route
+from dotenv import load_dotenv
+from search.route import Route
 
 from data import air_iata
 from utils import datetime_utils
+
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+
+_CITY2CODE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "data", "city2code.json"
+)
 
 
 class Search:
@@ -29,8 +37,8 @@ class Search:
     I recommend to complete route for 2-7 citys and period not more for 1 month.
     """
 
-    def __init__(self, token="TOKEN"):
-        self.token = token
+    def __init__(self, token=None):
+        self.token = token or os.environ.get("AVIASALES_TOKEN", "")
 
     def find_flights_fo_period(
         self, airports, start_date, end_date, s_period, e_period, home, finish
@@ -434,7 +442,7 @@ class Search:
         """
         Converted name of city to airport, according to the rules IATA
         """
-        with open(r"../data/city2code.json", encoding="utf-8") as f:
+        with open(_CITY2CODE_PATH, encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(citys, str):
                 airports = data[citys]
@@ -443,7 +451,7 @@ class Search:
             return airports
 
     def convert_tranzit_city_to_air(self, citys):
-        with open(r"../data/city2code.json", encoding="utf-8") as f:
+        with open(_CITY2CODE_PATH, encoding="utf-8") as f:
             data = json.load(f)
             if citys != []:
                 new_tranzit_list = []

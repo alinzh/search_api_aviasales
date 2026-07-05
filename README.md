@@ -15,7 +15,7 @@ By the way, this bot is able to search for the best offers that Aviasales does n
 # How to use bot
 
 Link on bot:
-https://t.me/search_avia_bot
+https://t.me/search_aviatickets_bot
 
 Video with bot:
 https://github.com/alinzh/search_api_aviasales/assets/124587537/738c9d29-fa38-4168-8c31-1734a6817716
