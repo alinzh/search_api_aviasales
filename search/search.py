@@ -66,6 +66,7 @@ class Search:
         cities: list[str],
         date_from: date,
         date_to: date,
+        final_destination: str | None = None,
         min_stay_days: int = 1,
         max_stay_days: int | None = 7,
         return_to_origin: bool = True,
@@ -78,8 +79,19 @@ class Search:
         if not origin_resolved:
             raise ValueError(f"Unknown origin city: {origin}")
         origin_label, origin_code = origin_resolved
+        final_point: CityPoint | None = None
+        if final_destination:
+            final_resolved = self.directory.resolve_city_code(final_destination)
+            if not final_resolved:
+                raise ValueError(f"Unknown final destination city: {final_destination}")
+            final_label, final_code = final_resolved
+            final_point = CityPoint(final_label, final_code)
+            return_to_origin = False
+
         points: list[CityPoint] = []
         seen = {origin_code}
+        if final_point:
+            seen.add(final_point.code)
         for city_name in cities:
             city = self.directory.resolve_city_code(city_name)
             if not city:
@@ -94,6 +106,7 @@ class Search:
             visit_cities=tuple(points),
             date_from=date_from,
             date_to=date_to,
+            final_destination=final_point,
             min_stay_days=min_stay_days,
             max_stay_days=max_stay_days,
             return_to_origin=return_to_origin,

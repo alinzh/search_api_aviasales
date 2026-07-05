@@ -37,3 +37,32 @@ def test_parse_ideas_query_with_natural_order_and_date_range():
 def test_ideas_query_requires_budget():
     with pytest.raises(ParseError):
         parse_ideas_query("из СПб куда угодно в августе", directory=Directory(), today=date(2026, 7, 5))
+
+
+def test_parse_ideas_query_with_month_roundtrip():
+    query = parse_ideas_query(
+        "из СПб куда угодно в июле до 12000 и обратно",
+        directory=Directory(),
+        today=date(2026, 7, 5),
+    )
+    assert query.mode == SearchMode.IDEAS
+    assert query.origin_code == "LED"
+    assert query.is_round_trip
+    assert query.date_from == date(2026, 7, 1)
+    assert query.date_to == date(2026, 7, 31)
+    assert query.return_date_from == date(2026, 7, 1)
+    assert query.return_date_to == date(2026, 7, 31)
+    assert query.max_price == 12000
+
+
+def test_parse_ideas_query_with_exact_roundtrip_dates():
+    query = parse_ideas_query(
+        "куда слетать из Москвы 10.08-20.08 до 60000 и обратно",
+        directory=Directory(),
+        today=date(2026, 7, 5),
+    )
+    assert query.is_round_trip
+    assert query.date_from == date(2026, 8, 10)
+    assert query.date_to == date(2026, 8, 10)
+    assert query.return_date_from == date(2026, 8, 20)
+    assert query.return_date_to == date(2026, 8, 20)
