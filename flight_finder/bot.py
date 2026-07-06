@@ -386,7 +386,7 @@ def route_menu(route) -> types.InlineKeyboardMarkup:
     for idx, leg in enumerate(route.legs, start=1):
         markup.add(
             types.InlineKeyboardButton(
-                f"Открыть плечо {idx}: {leg.origin.label} → {leg.destination.label}",
+                f"Открыть билет {idx}: {leg.origin.label} → {leg.destination.label}",
                 url=leg.offer.link,
             )
         )

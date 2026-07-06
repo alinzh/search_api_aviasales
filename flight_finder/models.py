@@ -120,11 +120,11 @@ class MultiCityQuery:
         if self.max_price:
             parts.append(f"общий бюджет до {self.max_price:,} ₽".replace(",", " "))
         if self.max_transfers is not None:
-            parts.append("без пересадок на плечо" if self.max_transfers == 0 else f"до {self.max_transfers} перес. на плечо")
+            parts.append("без пересадок на перелет" if self.max_transfers == 0 else f"до {self.max_transfers} перес. на перелет")
         if self.max_duration_minutes:
             hours = self.max_duration_minutes // 60
             minutes = self.max_duration_minutes % 60
-            parts.append(f"до {hours}ч {minutes:02d}м на плечо")
+            parts.append(f"до {hours}ч {minutes:02d}м на перелет")
         return ", ".join(parts)
 
 

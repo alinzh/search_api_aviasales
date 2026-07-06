@@ -96,7 +96,7 @@ def _parse_roundtrip_dates(text: str, today: date | None = None) -> tuple[bool, 
     is_round_trip = bool(_ROUND_TRIP_RE.search(text))
     matches = list(_DATE_RANGE_RE.finditer(text))
     if not matches:
-        raise ParseError("Не нашёл диапазон дат. Пример: 06.07-14.07")
+        raise ParseError("Не нашел диапазон дат. Пример: 06.07-14.07")
 
     if is_round_trip and len(matches) >= 2:
         out_from, out_to = _dates_from_match(matches[0], today)
@@ -125,7 +125,7 @@ def _parse_date_range(text: str, today: date | None = None) -> tuple[date, date,
     today = today or date.today()
     match = _DATE_RANGE_RE.search(text)
     if not match:
-        raise ParseError("Не нашёл диапазон дат. Пример: 06.07-14.07")
+        raise ParseError("Не нашел диапазон дат. Пример: 06.07-14.07")
     first, second = _dates_from_match(match, today)
     return first, second, text[: match.start()] + " " + text[match.end() :]
 
@@ -140,7 +140,7 @@ def _parse_period(text: str, today: date | None = None) -> tuple[date, date, str
 
     month_match = _MONTH_PERIOD_RE.search(text)
     if not month_match:
-        raise ParseError("Не нашёл период. Пример: 06.07-14.07 или в августе")
+        raise ParseError("Не нашел период. Пример: 06.07-14.07 или в августе")
     month_word = normalize_name(month_match.group("month"))
     month = _MONTH_ALIASES.get(month_word)
     if not month:
@@ -412,7 +412,7 @@ def parse_multicity_query(
     explicit_no_return = bool(re.search(r"без\s+возврата|в\s+одну\s+сторону|не\s+возвращ", cleaned, flags=re.IGNORECASE))
     return_to_origin = not explicit_no_return
     cleaned = re.sub(r"без\s+возврата|в\s+одну\s+сторону|не\s+возвращ\w*", " ", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\b(хочу|надо|нужно|маршрут|найди|подбери|самый|дешевый|дешёвый|порядок|города|городов)\b", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\b(хочу|надо|нужно|маршрут|найди|подбери|самый|дешевый|дешевый|порядок|города|городов)\b", " ", cleaned, flags=re.IGNORECASE)
     cleaned = " ".join(cleaned.split())
 
     origin_text, final_text, cities_text = _extract_multicity_origin_final_and_cities(cleaned)

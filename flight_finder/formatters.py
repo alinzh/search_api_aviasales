@@ -14,8 +14,8 @@ def welcome_text() -> str:
     return (
         "✈️ <b>Гибкий поиск авиабилетов</b>\n\n"
         "Главная фича — не просто multi-city в заданном порядке, а подбор порядка городов. "
-        "Ты даёшь список городов, которые хочешь посетить, а я ищу самый дешёвый маршрут.\n\n"
-        "Ещё есть режим идей: задай бюджет и примерный период, а бот предложит разные направления.\n\n"
+        "Ты даешь список городов, которые хочешь посетить, а я ищу самый дешевый маршрут.\n\n"
+        "Еще есть режим идей: задай бюджет и примерный период, а бот предложит разные направления.\n\n"
         "Пример multi-city:\n"
         "<code>из СПб посетить Стамбул, Шанхай, Бангкок 06.07-25.07 по 2-4 дня до 120000</code>\n\n"
         "Пример идей:\n"
@@ -26,11 +26,11 @@ def welcome_text() -> str:
 def examples_text() -> str:
     return (
         "<b>Примеры запросов</b>\n\n"
-        "🧭 <b>Multi-city optimizer</b> — порядок городов НЕ задаёшь:\n"
+        "🧭 <b>Multi-city optimizer</b> — порядок городов НЕ задаешь:\n"
         "• <code>из СПб посетить Стамбул, Шанхай, Бангкок 06.07-25.07 по 2-4 дня до 120000</code>\n"
         "• <code>СПб: Стамбул, Шанхай, Бангкок 06.07-25.07 до 1 пересадки</code>\n"
         "• <code>из LED через IST, SHA, BKK 06.07-25.07 без возврата</code>\n\n"
-        "🎲 <b>Идеи в бюджет</b> — направление не задаёшь:\n"
+        "🎲 <b>Идеи в бюджет</b> — направление не задаешь:\n"
         "• <code>из СПб куда угодно в августе до 50000</code>\n"
         "• <code>куда слетать из Москвы 10.08-20.08 до 60000</code>\n"
         "• <code>идеи из LED в июле до 40000 до 1 пересадки</code>\n\n"
@@ -46,9 +46,9 @@ def examples_text() -> str:
 
 def search_started_text(query: SearchQuery) -> str:
     if query.is_round_trip:
-        tail = "Сначала найду дешёвые варианты туда, затем обратные плечи и соберу пары туда-обратно."
+        tail = "Сначала найду дешевые варианты туда, затем обратные перелеты и соберу пары туда-обратно."
     else:
-        tail = "Сначала проверю самые дешёвые cached-офферы, затем отфильтрую по пересадкам, цене и длительности."
+        tail = "Сначала проверю самые дешевые cached-офферы, затем отфильтрую по пересадкам, цене и длительности."
     return (
         "🔎 <b>Ищу варианты</b>\n"
         f"{html.escape(query.describe())}\n\n"
@@ -67,7 +67,7 @@ def ideas_help_text() -> str:
         "• <code>куда слетать из Москвы 10.08-20.08 до 60000</code>\n"
         "• <code>идеи из LED в июле до 40000 до 1 пересадки</code>\n"
         "• <code>из СПб куда угодно в июле до 50000 и обратно</code>\n\n"
-        "Важно: для обычного запроса бюджет считается на один перелёт. "
+        "Важно: для обычного запроса бюджет считается на один перелет. "
         "Если есть <code>и обратно</code>, бюджет считается за пару туда+обратно."
     )
 
@@ -76,7 +76,7 @@ def ideas_started_text(query: SearchQuery) -> str:
     if query.is_round_trip:
         tail = (
             "Проверю разные направления из базы идей, для каждого соберу пару туда+обратно "
-            "и отфильтрую по общему бюджету за оба перелёта."
+            "и отфильтрую по общему бюджету за оба перелета."
         )
     else:
         tail = (
@@ -92,7 +92,7 @@ def ideas_started_text(query: SearchQuery) -> str:
 
 def no_ideas_results_text(query: SearchQuery) -> str:
     return (
-        "😕 <b>Не нашёл идей в этот бюджет</b>\n\n"
+        "😕 <b>Не нашел идей в этот бюджет</b>\n\n"
         f"Запрос: {html.escape(query.describe())}\n\n"
         "Что попробовать: поднять бюджет, расширить период, разрешить пересадки или убрать лимит времени в пути."
     )
@@ -107,10 +107,10 @@ def ideas_summary_text(query: SearchQuery, offers: list[FlightOffer], directory:
         if country not in countries:
             countries.append(country)
     return (
-        f"✅ <b>Нашёл {len(offers)} разных идей</b>\n"
+        f"✅ <b>Нашел {len(offers)} разных идей</b>\n"
         f"Запрос: {html.escape(query.describe())}\n\n"
         f"🌍 Страны/направления: {html.escape(', '.join(countries[:8]))}\n"
-        "Ниже — не просто самые дешёвые билеты, а разнообразная подборка: город, пляж, культура, хабы и соседние страны."
+        "Ниже — не просто самые дешевые билеты, а разнообразная подборка: город, пляж, культура, хабы и соседние страны."
     )
 
 
@@ -124,11 +124,11 @@ def ideas_roundtrip_summary_text(query: SearchQuery, offers: list[RoundTripOffer
             countries.append(country)
     best = offers[0]
     return (
-        f"✅ <b>Нашёл {len(offers)} идей туда-обратно</b>\n"
+        f"✅ <b>Нашел {len(offers)} идей туда-обратно</b>\n"
         f"Запрос: {html.escape(query.describe())}\n\n"
         f"💸 Лучший вариант: {html.escape(best.destination.label)} — <b>{money(best.total_price)}</b> за туда+обратно\n"
         f"🌍 Страны/направления: {html.escape(', '.join(countries[:8]))}\n\n"
-        "Ниже — разнообразные направления. В каждой карточке показаны оба плеча и общая цена."
+        "Ниже — разнообразные направления. В каждой карточке показаны оба перелета и общая цена."
     )
 
 
@@ -171,7 +171,7 @@ def idea_roundtrip_card(item: RoundTripOffer, directory: Directory, index: int) 
 def multicity_help_text() -> str:
     return (
         "🧭 <b>Multi-city optimizer</b>\n\n"
-        "Это главный режим: укажи список городов без порядка, а бот переберёт варианты и найдёт дешёвый порядок посещения.\n\n"
+        "Это главный режим: укажи список городов без порядка, а бот переберет варианты и найдет дешевый порядок посещения.\n\n"
         "Формат:\n"
         "<code>из СПб посетить Стамбул, Шанхай, Бангкок 06.07-25.07 по 2-4 дня до 120000</code>\n\n"
         "Что поддерживается:\n"
@@ -180,7 +180,7 @@ def multicity_help_text() -> str:
         "• общее окно дат;\n"
         "• сколько дней провести в каждом городе;\n"
         "• общий бюджет;\n"
-        "• максимум пересадок и длительность на каждое плечо;\n"
+        "• максимум пересадок и длительность на каждый перелет;\n"
         "• <code>без возврата</code>, если не нужно возвращаться в стартовый город."
     )
 
@@ -189,7 +189,7 @@ def multicity_started_text(query: MultiCityQuery) -> str:
     return (
         "🧮 <b>Оптимизирую порядок городов</b>\n"
         f"{html.escape(query.describe())}\n\n"
-        "Проверю пары городов, переберу перестановки и оставлю маршруты, где перелёты идут в хронологическом порядке "
+        "Проверю пары городов, переберу перестановки и оставлю маршруты, где перелеты идут в хронологическом порядке "
         "и выдерживается остановка в каждом городе."
     )
 
@@ -212,7 +212,7 @@ def no_results_text(query: SearchQuery) -> str:
 
 def no_multicity_results_text(query: MultiCityQuery) -> str:
     return (
-        "😕 <b>Не нашёл цельный multi-city маршрут</b>\n\n"
+        "😕 <b>Не нашел цельный multi-city маршрут</b>\n\n"
         f"Запрос: {html.escape(query.describe())}\n\n"
         "Что попробовать: расширить общее окно дат, увеличить допустимое число пересадок, "
         "уменьшить минимальную остановку в городе или поднять общий бюджет."
@@ -221,7 +221,7 @@ def no_multicity_results_text(query: MultiCityQuery) -> str:
 
 def no_roundtrip_results_text(query: SearchQuery) -> str:
     return (
-        "😕 <b>Не нашёл пару туда-обратно</b>\n\n"
+        "😕 <b>Не нашел пару туда-обратно</b>\n\n"
         f"Запрос: {html.escape(query.describe())}\n\n"
         "Что попробовать: расширить даты туда/обратно, поднять общий бюджет, "
         "разрешить больше пересадок или искать страну без строгого лимита длительности."
@@ -233,7 +233,7 @@ def roundtrip_summary_text(query: SearchQuery, offers: list[RoundTripOffer]) -> 
         return no_roundtrip_results_text(query)
     best = offers[0]
     return (
-        f"✅ <b>Нашёл {len(offers)} вариантов туда-обратно</b>\n"
+        f"✅ <b>Нашел {len(offers)} вариантов туда-обратно</b>\n"
         f"Запрос: {html.escape(query.describe())}\n\n"
         f"💸 Лучший: {html.escape(best.destination.label)} — <b>{money(best.total_price)}</b>\n"
         f"🧭 {html.escape(best.outbound.origin_label)} → {html.escape(best.destination.label)} → {html.escape(best.inbound.destination_label)}\n\n"
@@ -263,9 +263,9 @@ def summary_text(query: SearchQuery, offers: list[FlightOffer]) -> str:
     cheapest = min(offers, key=lambda offer: offer.price)
     fastest = min(offers, key=lambda offer: offer.duration_minutes)
     return (
-        f"✅ <b>Нашёл {len(offers)} вариантов</b>\n"
+        f"✅ <b>Нашел {len(offers)} вариантов</b>\n"
         f"Запрос: {html.escape(query.describe())}\n\n"
-        f"💸 Самый дешёвый: {html.escape(cheapest.destination_label)} — {money(cheapest.price)}\n"
+        f"💸 Самый дешевый: {html.escape(cheapest.destination_label)} — {money(cheapest.price)}\n"
         f"⚡ Самый быстрый: {html.escape(fastest.destination_label)} — {fastest.duration_hm}\n\n"
         "Ниже — лучшие карточки по score: цена + штраф за пересадки/долгую дорогу/ночной вылет."
     )
@@ -276,11 +276,11 @@ def multicity_summary_text(query: MultiCityQuery, routes: list[MultiCityRoute]) 
         return no_multicity_results_text(query)
     best = routes[0]
     return (
-        f"✅ <b>Нашёл {len(routes)} multi-city маршрутов</b>\n"
+        f"✅ <b>Нашел {len(routes)} multi-city маршрутов</b>\n"
         f"Запрос: {html.escape(query.describe())}\n\n"
         f"💸 Лучший маршрут: <b>{money(best.total_price)}</b>\n"
         f"🧭 Порядок: {' → '.join(html.escape(label) for label in best.route_labels)}\n\n"
-        "Ниже — карточки маршрутов. Кнопки открывают конкретные плечи на Aviasales."
+        "Ниже — карточки маршрутов. Кнопки открывают конкретные перелеты на Aviasales."
     )
 
 
