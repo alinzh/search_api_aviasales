@@ -47,15 +47,29 @@ class TravelpayoutsClient:
         if not self.token:
             raise RuntimeError("AVIASALES_TOKEN пустой. Укажи токен в .env")
 
+        destinations = [c for c in query.destination.codes if c != query.origin_code]
+        logger.info(
+            "Search start: %s → %s (codes=%s), dates=%s..%s, mode=%s, max_price=%s, max_transfers=%s, max_duration=%s",
+            query.origin_code,
+            query.destination.label,
+            destinations,
+            query.date_from,
+            query.date_to,
+            query.mode.value,
+            query.max_price,
+            query.max_transfers,
+            query.max_duration_minutes,
+        )
         offers: list[FlightOffer] = []
-        for destination_code in query.destination.codes:
-            if destination_code == query.origin_code:
-                continue
+        for destination_code in destinations:
             offers.extend(self._search_one_destination(query, destination_code, directory, limit_per_destination))
 
+        before_dedup = len(offers)
         offers = self._dedupe(offers)
+        logger.info("Search dedup: %d → %d offers", before_dedup, len(offers))
         offers.sort(key=lambda offer: offer.score)
         self._convert_links_to_partner(offers)
+        logger.info("Search done: %d offers for %s → %s", len(offers), query.origin_code, query.destination.label)
         return offers
 
     def search_ideas(
@@ -177,6 +191,16 @@ class TravelpayoutsClient:
             return []
         assert query.return_date_from is not None and query.return_date_to is not None
 
+        logger.info(
+            "Round-trip start: %s → %s, outbound=%s..%s, return=%s..%s, budget=%s",
+            query.origin_code,
+            query.destination.label,
+            query.date_from,
+            query.date_to,
+            query.return_date_from,
+            query.return_date_to,
+            query.max_price,
+        )
         results: list[RoundTripOffer] = []
         origin_point = CityPoint(query.origin_label, query.origin_code)
         for destination_code in query.destination.codes:
@@ -216,6 +240,13 @@ class TravelpayoutsClient:
             outbound_offers = self._search_one_destination(outbound_query, destination_code, directory, max_offers_per_leg)
             inbound_offers = self._search_one_destination(inbound_query, query.origin_code, directory, max_offers_per_leg)
             if not outbound_offers or not inbound_offers:
+                logger.debug(
+                    "Round-trip %s→%s: skipped (outbound=%d, inbound=%d)",
+                    query.origin_code,
+                    destination_code,
+                    len(outbound_offers),
+                    len(inbound_offers),
+                )
                 continue
 
             best_for_destination: RoundTripOffer | None = None
@@ -238,9 +269,20 @@ class TravelpayoutsClient:
                         best_for_destination = candidate
             if best_for_destination:
                 results.append(best_for_destination)
+                logger.info(
+                    "Round-trip %s→%s: best pair price=%d (outbound=%d + inbound=%d)",
+                    query.origin_code,
+                    destination_code,
+                    best_for_destination.total_price,
+                    best_for_destination.outbound.price,
+                    best_for_destination.inbound.price,
+                )
+            else:
+                logger.debug("Round-trip %s→%s: no valid pair within budget", query.origin_code, destination_code)
 
         results.sort(key=lambda item: (item.score, item.total_price))
         truncated = results[:limit_per_destination]
+        logger.info("Round-trip done: %d results (showing %d)", len(results), len(truncated))
         leg_offers: list[FlightOffer] = []
         for item in truncated:
             leg_offers.append(item.outbound)
@@ -270,15 +312,24 @@ class TravelpayoutsClient:
         if query.final_destination and query.final_destination.code not in {point.code for point in route_points}:
             route_points = (*route_points, query.final_destination)
 
+        pairs = list(itertools.permutations(route_points, 2))
+        logger.info(
+            "Multi-city start: %d points, %d city pairs to search, dates=%s..%s, budget=%s",
+            len(route_points),
+            len(pairs),
+            query.date_from,
+            query.date_to,
+            query.max_price,
+        )
+
         offers_by_pair: dict[tuple[str, str], list[FlightOffer]] = {}
-        for origin, destination in itertools.permutations(route_points, 2):
+        for origin, destination in pairs:
             pair_query = SearchQuery(
                 origin_label=origin.label,
                 origin_code=origin.code,
                 destination=replace_destination(destination),
                 date_from=query.date_from,
                 date_to=query.date_to,
-                # For multi-city, max_price means total budget, not per-leg budget.
                 max_price=None,
                 max_transfers=query.max_transfers,
                 max_duration_minutes=query.max_duration_minutes,
@@ -290,15 +341,19 @@ class TravelpayoutsClient:
             offers = self._search_one_destination(pair_query, destination.code, directory, max_offers_per_pair)
             offers.sort(key=lambda offer: (offer.departure_at or datetime.max, offer.score))
             offers_by_pair[(origin.code, destination.code)] = offers
+            logger.debug("Multi-city pair %s→%s: %d offers", origin.code, destination.code, len(offers))
 
+        permutations = list(itertools.permutations(query.visit_cities))
+        logger.info("Multi-city: checking %d permutations", len(permutations))
         routes: list[MultiCityRoute] = []
-        for order in itertools.permutations(query.visit_cities):
+        for order in permutations:
             if query.final_destination:
                 sequence = (query.origin, *order, query.final_destination)
             elif query.return_to_origin:
                 sequence = (query.origin, *order, query.origin)
             else:
                 sequence = (query.origin, *order)
+            seq_labels = " → ".join(p.label for p in sequence)
             best_for_order = self._best_route_for_sequence(
                 sequence=sequence,
                 offers_by_pair=offers_by_pair,
@@ -307,9 +362,22 @@ class TravelpayoutsClient:
             )
             if best_for_order:
                 routes.append(best_for_order)
+                logger.debug(
+                    "Multi-city permutation %s: FOUND route price=%d score=%.0f",
+                    seq_labels,
+                    best_for_order.total_price,
+                    best_for_order.score,
+                )
+            else:
+                logger.debug("Multi-city permutation %s: no feasible route", seq_labels)
 
         routes.sort(key=lambda route: route.score)
         truncated_routes = routes[:max_routes]
+        logger.info(
+            "Multi-city done: %d feasible routes (showing %d)",
+            len(routes),
+            len(truncated_routes),
+        )
         leg_offers: list[FlightOffer] = []
         for route in truncated_routes:
             leg_offers.extend(leg.offer for leg in route.legs)
@@ -397,7 +465,16 @@ class TravelpayoutsClient:
         limit: int,
     ) -> list[FlightOffer]:
         offers: list[FlightOffer] = []
-        for month in _months_between(query.date_from, query.date_to):
+        months = _months_between(query.date_from, query.date_to)
+        logger.debug(
+            "API request %s→%s: %d months=%s, limit=%d",
+            query.origin_code,
+            destination_code,
+            len(months),
+            months,
+            limit,
+        )
+        for month in months:
             params = {
                 "origin": query.origin_code,
                 "destination": destination_code,
@@ -409,29 +486,77 @@ class TravelpayoutsClient:
                 "token": self.token,
             }
             started = time.time()
-            response = self.session.get(self.API_URL, params=params, timeout=self.timeout_seconds)
-            response.raise_for_status()
-            payload = response.json()
+            try:
+                response = self.session.get(self.API_URL, params=params, timeout=self.timeout_seconds)
+                response.raise_for_status()
+                payload = response.json()
+            except requests.RequestException as exc:
+                logger.warning(
+                    "API HTTP error %s→%s month=%s: %s (took %.2fs)",
+                    query.origin_code,
+                    destination_code,
+                    month,
+                    exc,
+                    time.time() - started,
+                )
+                continue
+            except ValueError as exc:
+                logger.warning(
+                    "API JSON parse error %s→%s month=%s: %s",
+                    query.origin_code,
+                    destination_code,
+                    month,
+                    exc,
+                )
+                continue
+
+            elapsed = time.time() - started
+            success = payload.get("success")
+            raw_items = payload.get("data") or []
             logger.info(
-                "Travelpayouts %s→%s month=%s returned success=%s in %.2fs",
+                "API %s→%s month=%s: success=%s, items=%d in %.2fs",
                 query.origin_code,
                 destination_code,
                 month,
-                payload.get("success"),
-                time.time() - started,
+                success,
+                len(raw_items),
+                elapsed,
             )
-            if not payload.get("success"):
+            if not success:
                 continue
-            raw_items = payload.get("data") or []
+
+            parsed = 0
+            filtered_out = 0
             for item in raw_items:
                 offer = self._to_offer(item, query, destination_code, directory)
                 if not offer:
                     continue
+                parsed += 1
                 if not self._passes_filters(offer, query):
+                    filtered_out += 1
                     continue
                 offers.append(offer)
+            logger.debug(
+                "API %s→%s month=%s: parsed=%d, passed_filters=%d, filtered_out=%d",
+                query.origin_code,
+                destination_code,
+                month,
+                parsed,
+                parsed - filtered_out,
+                filtered_out,
+            )
+        before_dedup = len(offers)
         offers = self._dedupe(offers)
+        if before_dedup != len(offers):
+            logger.debug("Dedup %s→%s: %d → %d", query.origin_code, destination_code, before_dedup, len(offers))
         offers.sort(key=lambda offer: offer.score)
+        logger.info(
+            "API result %s→%s: %d offers after all filters (returning %d)",
+            query.origin_code,
+            destination_code,
+            len(offers),
+            min(len(offers), limit),
+        )
         return offers[:limit]
 
     def _to_offer(
@@ -477,10 +602,22 @@ class TravelpayoutsClient:
 
     def _passes_filters(self, offer: FlightOffer, query: SearchQuery) -> bool:
         if query.max_price is not None and offer.price > query.max_price:
+            logger.debug(
+                "Filter reject %s→%s price=%d (max_price=%d)",
+                offer.origin, offer.destination, offer.price, query.max_price,
+            )
             return False
         if query.max_transfers is not None and offer.transfers > query.max_transfers:
+            logger.debug(
+                "Filter reject %s→%s transfers=%d (max_transfers=%d)",
+                offer.origin, offer.destination, offer.transfers, query.max_transfers,
+            )
             return False
         if query.max_duration_minutes is not None and offer.duration_minutes > query.max_duration_minutes:
+            logger.debug(
+                "Filter reject %s→%s duration=%d (max_duration=%d)",
+                offer.origin, offer.destination, offer.duration_minutes, query.max_duration_minutes,
+            )
             return False
         return True
 
@@ -515,14 +652,16 @@ class TravelpayoutsClient:
         )
 
         if not self.marker:
+            logger.debug("Built link (no marker): %s", url)
             return url, None
 
         if self.trs:
-            # Partner Links API will append marker/sub_id via the redirect gateway.
+            logger.debug("Built link (trs=%s, sub_id=%s): %s", self.trs, sub_id, url)
             return url, sub_id
 
-        # Fallback: direct Aviasales URL with separate marker and sub_id params.
-        return add_query_params(url, {"marker": self.marker, "sub_id": sub_id}), None
+        final_url = add_query_params(url, {"marker": self.marker, "sub_id": sub_id})
+        logger.debug("Built link (fallback, marker=%s sub_id=%s): %s", self.marker, sub_id, final_url)
+        return final_url, None
 
     @staticmethod
     def _dedupe(offers: Iterable[FlightOffer]) -> list[FlightOffer]:
@@ -554,7 +693,8 @@ class TravelpayoutsClient:
             return {}
 
         result: dict[str, str] = {}
-        for start in range(0, len(pairs), self.LINKS_BATCH_SIZE):
+        total_batches = (len(pairs) + self.LINKS_BATCH_SIZE - 1) // self.LINKS_BATCH_SIZE
+        for batch_idx, start in enumerate(range(0, len(pairs), self.LINKS_BATCH_SIZE), start=1):
             batch = pairs[start : start + self.LINKS_BATCH_SIZE]
             payload = {
                 "trs": self.trs,
@@ -565,6 +705,14 @@ class TravelpayoutsClient:
                     for url, sub_id in batch
                 ],
             }
+            logger.info(
+                "Partner Links API: batch %d/%d, %d URLs (marker=%s trs=%s)",
+                batch_idx,
+                total_batches,
+                len(batch),
+                self.marker,
+                self.trs,
+            )
             try:
                 response = self.session.post(
                     self.LINKS_API_URL,
@@ -575,17 +723,37 @@ class TravelpayoutsClient:
                 response.raise_for_status()
                 payload_json = response.json()
             except Exception as exc:
-                logger.warning("Partner Links API request failed: %s", exc)
+                logger.warning(
+                    "Partner Links API: batch %d/%d FAILED: %s",
+                    batch_idx,
+                    total_batches,
+                    exc,
+                )
                 return result
 
             links = (payload_json.get("result") or {}).get("links") or []
+            batch_mapped = 0
             for entry in links:
                 if entry.get("code") != "success":
+                    logger.debug(
+                        "Partner Links API: URL %s conversion failed: code=%s message=%s",
+                        entry.get("url"),
+                        entry.get("code"),
+                        entry.get("message"),
+                    )
                     continue
                 partner_url = entry.get("partner_url") or ""
                 original_url = entry.get("url") or ""
                 if partner_url and original_url:
                     result[original_url] = partner_url
+                    batch_mapped += 1
+            logger.info(
+                "Partner Links API: batch %d/%d done, mapped %d/%d URLs",
+                batch_idx,
+                total_batches,
+                batch_mapped,
+                len(batch),
+            )
         return result
 
     def _convert_links_to_partner(self, offers: list[FlightOffer]) -> None:
@@ -607,10 +775,12 @@ class TravelpayoutsClient:
             candidate_offers.append(offer)
 
         if not candidate_pairs:
+            logger.debug("Convert links: no candidates with sub_id, skipping (already fallback format)")
             return
 
         partner_map = self._create_partner_links(candidate_pairs)
         converted = 0
+        fallback = 0
         for offer, (url, sub_id) in zip(candidate_offers, candidate_pairs):
             partner_url = partner_map.get(url)
             if partner_url:
@@ -618,10 +788,13 @@ class TravelpayoutsClient:
                 converted += 1
             else:
                 offer.link = add_query_params(url, {"marker": self.marker, "sub_id": sub_id})
+                fallback += 1
+                logger.debug("Convert links: fallback for %s → marker=%s sub_id=%s", url, self.marker, sub_id)
         logger.info(
-            "Partner Links API: converted %d/%d offers (marker=%s trs=%s)",
+            "Partner Links API: converted %d/%d offers, fallback %d (marker=%s trs=%s)",
             converted,
             len(candidate_offers),
+            fallback,
             self.marker,
             self.trs,
         )

@@ -53,12 +53,20 @@ class ChatSession:
 sessions: dict[int, ChatSession] = {}
 
 
+def _user_info(message_or_call) -> str:
+    """Extract user id and username for logging."""
+    user = message_or_call.from_user
+    username = f"@{user.username}" if getattr(user, "username", None) else "<no_username>"
+    return f"user={user.id} {username}"
+
+
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         stream=sys.stdout,
     )
+    logging.getLogger("telebot").setLevel(logging.INFO)
     settings = Settings.from_env()
     settings.validate_for_bot()
 
@@ -73,18 +81,32 @@ def main() -> None:
 
     bot = telebot.TeleBot(settings.telegram_bot_token, parse_mode="HTML")
 
+    logger.info(
+        "Bot starting, token=%s...%s, marker=%s, trs=%s, market=%s, currency=%s, top_limit=%d",
+        settings.telegram_bot_token[:8],
+        settings.telegram_bot_token[-4:],
+        settings.travelpayouts_marker,
+        settings.travelpayouts_trs,
+        settings.market,
+        settings.currency,
+        settings.top_limit,
+    )
+
     @bot.message_handler(commands=["start"])
     def start(message: types.Message) -> None:
+        logger.info("%s /start", _user_info(message))
         sessions[message.chat.id] = ChatSession()
         bot.send_message(message.chat.id, welcome_text(), reply_markup=main_menu())
 
     @bot.message_handler(commands=["examples", "help"])
     def examples(message: types.Message) -> None:
+        logger.info("%s /examples", _user_info(message))
         bot.send_message(message.chat.id, examples_text(), reply_markup=main_menu())
 
     @bot.message_handler(commands=["alerts"])
     def alerts(message: types.Message) -> None:
         rows = storage.list_alerts(message.chat.id)
+        logger.info("%s /alerts (count=%d)", _user_info(message), len(rows))
         if not rows:
             bot.send_message(
                 message.chat.id,
@@ -107,6 +129,7 @@ def main() -> None:
     def menu_callback(call: types.CallbackQuery) -> None:
         chat_id = call.message.chat.id
         session = sessions.setdefault(chat_id, ChatSession())
+        logger.info("%s menu: %s", _user_info(call), call.data)
         if call.data == "examples":
             bot.answer_callback_query(call.id)
             bot.send_message(chat_id, examples_text(), reply_markup=main_menu())
@@ -140,6 +163,7 @@ def main() -> None:
 
     @bot.callback_query_handler(func=lambda call: call.data == "restart")
     def restart_callback(call: types.CallbackQuery) -> None:
+        logger.info("%s restart", _user_info(call))
         sessions[call.message.chat.id] = ChatSession()
         bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, welcome_text(), reply_markup=main_menu())
@@ -148,9 +172,11 @@ def main() -> None:
     def alert_current(call: types.CallbackQuery) -> None:
         session = sessions.setdefault(call.message.chat.id, ChatSession())
         if not session.last_query:
+            logger.info("%s alert_current: no last_query", _user_info(call))
             bot.answer_callback_query(call.id, "Сначала сделай обычный поиск")
             return
         alert_id = storage.create_alert(call.message.chat.id, session.last_query)
+        logger.info("%s created alert #%s for %s", _user_info(call), alert_id, session.last_query.describe())
         bot.answer_callback_query(call.id, "Уведомление создано")
         bot.send_message(
             call.message.chat.id,
@@ -163,6 +189,8 @@ def main() -> None:
         chat_id = message.chat.id
         session = sessions.setdefault(chat_id, ChatSession())
         mode = session.mode or "multi"
+        logger.info("%s text (mode=%s): %r", _user_info(message), mode, message.text)
+
         if mode == "multi":
             try:
                 query = parse_multicity_query(
@@ -172,8 +200,10 @@ def main() -> None:
                     market=settings.market,
                 )
             except Exception as exc:
+                logger.warning("%s multi-city parse error: %s", _user_info(message), exc)
                 bot.send_message(chat_id, error_text(exc), reply_markup=main_menu())
                 return
+            logger.info("%s parsed multi-city: %s", _user_info(message), query.describe())
             session.last_multicity_query = query
             run_multicity_in_thread(bot, chat_id, query, client, directory)
             return
@@ -187,8 +217,10 @@ def main() -> None:
                     market=settings.market,
                 )
             except Exception as exc:
+                logger.warning("%s ideas parse error: %s", _user_info(message), exc)
                 bot.send_message(chat_id, error_text(exc), reply_markup=main_menu())
                 return
+            logger.info("%s parsed ideas: %s", _user_info(message), query.describe())
             session.last_query = query
             storage.save_search(chat_id, query)
             run_ideas_in_thread(bot, chat_id, query, client, directory, settings.top_limit)
@@ -204,8 +236,10 @@ def main() -> None:
                 mode=search_mode,
             )
         except Exception as exc:
+            logger.warning("%s search parse error: %s", _user_info(message), exc)
             bot.send_message(chat_id, error_text(exc), reply_markup=main_menu())
             return
+        logger.info("%s parsed search: %s", _user_info(message), query.describe())
         session.last_query = query
         storage.save_search(chat_id, query)
         if query.is_round_trip:
@@ -213,7 +247,7 @@ def main() -> None:
         else:
             run_search_in_thread(bot, chat_id, query, client, directory, settings.top_limit)
 
-    logger.info("Bot started")
+    logger.info("Bot started, polling...")
     bot.infinity_polling(skip_pending=True, timeout=30, long_polling_timeout=30)
 
 
@@ -226,6 +260,7 @@ def run_ideas_in_thread(
     top_limit: int,
 ) -> None:
     def worker() -> None:
+        logger.info("user=%s IDEAS SEARCH START: %s", chat_id, query.describe())
         bot.send_message(chat_id, ideas_started_text(query), reply_markup=restart_menu())
         try:
             if query.is_round_trip:
@@ -236,9 +271,11 @@ def run_ideas_in_thread(
                     max_results=max(top_limit, 8),
                 )
                 if not roundtrip_offers:
+                    logger.info("user=%s IDEAS ROUNDTRIP SEARCH EMPTY", chat_id)
                     bot.send_message(chat_id, no_roundtrip_results_text(query), reply_markup=main_menu())
                     return
                 roundtrip_offers = roundtrip_offers[:max(top_limit, 8)]
+                logger.info("user=%s IDEAS ROUNDTRIP SEARCH DONE: %d offers", chat_id, len(roundtrip_offers))
                 bot.send_message(chat_id, ideas_roundtrip_summary_text(query, roundtrip_offers, directory), reply_markup=after_results_menu())
                 for idx, offer in enumerate(roundtrip_offers, start=1):
                     bot.send_message(chat_id, idea_roundtrip_card(offer, directory, idx), reply_markup=roundtrip_menu(offer))
@@ -246,13 +283,15 @@ def run_ideas_in_thread(
 
             offers = client.search_ideas(query, directory, limit_per_destination=3, max_results=max(top_limit, 8))
         except Exception as exc:
-            logger.exception("Ideas search failed")
+            logger.exception("user=%s IDEAS SEARCH ERROR: %s", chat_id, exc)
             bot.send_message(chat_id, error_text(exc), reply_markup=main_menu())
             return
         if not offers:
+            logger.info("user=%s IDEAS SEARCH EMPTY", chat_id)
             bot.send_message(chat_id, no_ideas_results_text(query), reply_markup=main_menu())
             return
         offers = offers[:max(top_limit, 8)]
+        logger.info("user=%s IDEAS SEARCH DONE: %d offers", chat_id, len(offers))
         bot.send_message(chat_id, ideas_summary_text(query, offers, directory), reply_markup=after_results_menu())
         for idx, offer in enumerate(offers, start=1):
             bot.send_message(chat_id, idea_card(offer, directory, idx), reply_markup=offer_menu(offer.link))
@@ -269,23 +308,26 @@ def run_search_in_thread(
     top_limit: int,
 ) -> None:
     def worker() -> None:
+        logger.info("user=%s SEARCH START: %s", chat_id, query.describe())
         bot.send_message(chat_id, search_started_text(query), reply_markup=restart_menu())
         try:
             offers = client.search(query, directory, limit_per_destination=max(top_limit, 5))
         except Exception as exc:
-            logger.exception("Search failed")
+            logger.exception("user=%s SEARCH ERROR: %s", chat_id, exc)
             bot.send_message(chat_id, error_text(exc), reply_markup=main_menu())
             return
         if not offers:
+            logger.info("user=%s SEARCH EMPTY", chat_id)
             bot.send_message(chat_id, no_results_text(query), reply_markup=main_menu())
             return
+        total = len(offers)
         offers = offers[:top_limit]
+        logger.info("user=%s SEARCH DONE: %d offers (showing %d)", chat_id, total, len(offers))
         bot.send_message(chat_id, summary_text(query, offers), reply_markup=after_results_menu())
         for idx, offer in enumerate(offers, start=1):
             bot.send_message(chat_id, offer_card(offer, directory, idx), reply_markup=offer_menu(offer.link))
 
     threading.Thread(target=worker, daemon=True).start()
-
 
 
 def run_roundtrip_in_thread(
@@ -297,17 +339,21 @@ def run_roundtrip_in_thread(
     top_limit: int,
 ) -> None:
     def worker() -> None:
+        logger.info("user=%s ROUNDTRIP SEARCH START: %s", chat_id, query.describe())
         bot.send_message(chat_id, search_started_text(query), reply_markup=restart_menu())
         try:
             offers = client.search_round_trip(query, directory, limit_per_destination=max(top_limit, 5))
         except Exception as exc:
-            logger.exception("Round-trip search failed")
+            logger.exception("user=%s ROUNDTRIP SEARCH ERROR: %s", chat_id, exc)
             bot.send_message(chat_id, error_text(exc), reply_markup=main_menu())
             return
         if not offers:
+            logger.info("user=%s ROUNDTRIP SEARCH EMPTY", chat_id)
             bot.send_message(chat_id, no_roundtrip_results_text(query), reply_markup=main_menu())
             return
+        total = len(offers)
         offers = offers[:top_limit]
+        logger.info("user=%s ROUNDTRIP SEARCH DONE: %d offers (showing %d)", chat_id, total, len(offers))
         bot.send_message(chat_id, roundtrip_summary_text(query, offers), reply_markup=after_results_menu())
         for idx, offer in enumerate(offers, start=1):
             bot.send_message(chat_id, roundtrip_offer_card(offer, directory, idx), reply_markup=roundtrip_menu(offer))
@@ -323,16 +369,19 @@ def run_multicity_in_thread(
     directory: Directory,
 ) -> None:
     def worker() -> None:
+        logger.info("user=%s MULTI-CITY SEARCH START: %s", chat_id, query.describe())
         bot.send_message(chat_id, multicity_started_text(query), reply_markup=restart_menu())
         try:
             routes = client.optimize_multicity(query, directory, max_routes=5)
         except Exception as exc:
-            logger.exception("Multi-city optimization failed")
+            logger.exception("user=%s MULTI-CITY SEARCH ERROR: %s", chat_id, exc)
             bot.send_message(chat_id, error_text(exc), reply_markup=main_menu())
             return
         if not routes:
+            logger.info("user=%s MULTI-CITY SEARCH EMPTY", chat_id)
             bot.send_message(chat_id, no_multicity_results_text(query), reply_markup=main_menu())
             return
+        logger.info("user=%s MULTI-CITY SEARCH DONE: %d routes", chat_id, len(routes))
         bot.send_message(chat_id, multicity_summary_text(query, routes), reply_markup=main_menu())
         for idx, route in enumerate(routes, start=1):
             bot.send_message(chat_id, multicity_route_card(route, directory, idx), reply_markup=route_menu(route))
@@ -371,7 +420,6 @@ def offer_menu(link: str) -> types.InlineKeyboardMarkup:
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton("Открыть билет", url=link))
     return markup
-
 
 
 def roundtrip_menu(offer) -> types.InlineKeyboardMarkup:
