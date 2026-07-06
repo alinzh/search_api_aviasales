@@ -1,0 +1,148 @@
+{
+  "китай": {
+    "label": "Китай",
+    "codes": [
+      "BJS",
+      "SHA",
+      "CAN",
+      "SZX",
+      "HGH",
+      "CTU",
+      "CKG",
+      "TAO",
+      "SIA",
+      "XMN",
+      "KMG",
+      "URC",
+      "HKG",
+      "MFM"
+    ]
+  },
+  "china": {
+    "label": "Китай",
+    "codes": [
+      "BJS",
+      "SHA",
+      "CAN",
+      "SZX",
+      "HGH",
+      "CTU",
+      "CKG",
+      "TAO",
+      "SIA",
+      "XMN",
+      "KMG",
+      "URC",
+      "HKG",
+      "MFM"
+    ]
+  },
+  "таиланд": {
+    "label": "Таиланд",
+    "codes": [
+      "BKK",
+      "HKT",
+      "CNX",
+      "USM",
+      "KBV"
+    ]
+  },
+  "вьетнам": {
+    "label": "Вьетнам",
+    "codes": [
+      "SGN",
+      "HAN",
+      "DAD",
+      "CXR",
+      "PQC"
+    ]
+  },
+  "оаэ": {
+    "label": "ОАЭ",
+    "codes": [
+      "DXB",
+      "DWC",
+      "AUH",
+      "SHJ"
+    ]
+  },
+  "азия": {
+    "label": "Азия",
+    "codes": [
+      "BJS",
+      "SHA",
+      "CAN",
+      "SZX",
+      "BKK",
+      "HKT",
+      "SGN",
+      "HAN",
+      "KUL",
+      "SIN",
+      "HKG",
+      "TPE",
+      "ICN",
+      "TYO"
+    ]
+  },
+  "тай": {
+    "label": "Таиланд",
+    "codes": [
+      "BKK",
+      "HKT",
+      "CNX",
+      "USM",
+      "KBV"
+    ]
+  },
+  "тайланд": {
+    "label": "Таиланд",
+    "codes": [
+      "BKK",
+      "HKT",
+      "CNX",
+      "USM",
+      "KBV"
+    ]
+  },
+  "thailand": {
+    "label": "Таиланд",
+    "codes": [
+      "BKK",
+      "HKT",
+      "CNX",
+      "USM",
+      "KBV"
+    ]
+  },
+  "vietnam": {
+    "label": "Вьетнам",
+    "codes": [
+      "SGN",
+      "HAN",
+      "DAD",
+      "CXR",
+      "PQC"
+    ]
+  },
+  "австралия": {
+    "label": "Австралия",
+    "codes": [
+      "SYD",
+      "MEL",
+      "BNE",
+      "PER",
+      "ADL"
+    ]
+  },
+  "australia": {
+    "label": "Австралия",
+    "codes": [
+      "SYD",
+      "MEL",
+      "BNE",
+      "PER",
+      "ADL"
+    ]
+  }
+}

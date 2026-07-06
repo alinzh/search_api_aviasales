@@ -1,0 +1,15 @@
+[project]
+name = "search-api-aviasales-ux"
+version = "0.2.0"
+description = "Telegram UX layer for flexible Aviasales/Travelpayouts flight search"
+requires-python = ">=3.10"
+dependencies = [
+    "pyTelegramBotAPI>=4.26.0",
+    "python-dotenv>=1.0.1",
+    "requests>=2.32.3",
+    "pydantic>=2.10.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

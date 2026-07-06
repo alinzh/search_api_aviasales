@@ -1,0 +1,7 @@
+services:
+  flight-bot:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ./flight_finder.sqlite3:/app/flight_finder.sqlite3
