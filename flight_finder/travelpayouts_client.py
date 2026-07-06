@@ -26,16 +26,20 @@ class TravelpayoutsClient:
     """
 
     API_URL = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates"
+    LINKS_API_URL = "https://api.travelpayouts.com/links/v1/create"
+    LINKS_BATCH_SIZE = 10
 
     def __init__(
         self,
         token: str,
         marker: str | None = None,
+        trs: int | None = None,
         timeout_seconds: int = 15,
         session: requests.Session | None = None,
     ):
         self.token = token
         self.marker = marker
+        self.trs = trs
         self.timeout_seconds = timeout_seconds
         self.session = session or requests.Session()
 
@@ -51,6 +55,7 @@ class TravelpayoutsClient:
 
         offers = self._dedupe(offers)
         offers.sort(key=lambda offer: offer.score)
+        self._convert_links_to_partner(offers)
         return offers
 
     def search_ideas(
@@ -235,7 +240,13 @@ class TravelpayoutsClient:
                 results.append(best_for_destination)
 
         results.sort(key=lambda item: (item.score, item.total_price))
-        return results[:limit_per_destination]
+        truncated = results[:limit_per_destination]
+        leg_offers: list[FlightOffer] = []
+        for item in truncated:
+            leg_offers.append(item.outbound)
+            leg_offers.append(item.inbound)
+        self._convert_links_to_partner(leg_offers)
+        return truncated
 
     def optimize_multicity(
         self,
@@ -298,7 +309,12 @@ class TravelpayoutsClient:
                 routes.append(best_for_order)
 
         routes.sort(key=lambda route: route.score)
-        return routes[:max_routes]
+        truncated_routes = routes[:max_routes]
+        leg_offers: list[FlightOffer] = []
+        for route in truncated_routes:
+            leg_offers.extend(leg.offer for leg in route.legs)
+        self._convert_links_to_partner(leg_offers)
+        return truncated_routes
 
     def _best_route_for_sequence(
         self,
@@ -439,7 +455,10 @@ class TravelpayoutsClient:
             return None
 
         raw_link = str(item.get("link") or "")
-        link = self._build_ticket_link(raw_link, query, destination_code)
+        link, sub_id = self._build_ticket_link(raw_link, query, destination_code)
+        raw_with_meta = dict(item)
+        if sub_id:
+            raw_with_meta["_sub_id"] = sub_id
         offer = FlightOffer(
             origin=query.origin_code,
             destination=destination_code,
@@ -451,7 +470,7 @@ class TravelpayoutsClient:
             duration_minutes=duration,
             departure_at=departure,
             link=link,
-            raw=item,
+            raw=raw_with_meta,
         )
         offer.score = self._score(offer)
         return offer
@@ -473,24 +492,37 @@ class TravelpayoutsClient:
         night_penalty = 2_000 if offer.departure_at and offer.departure_at.hour < 6 else 0
         return offer.price + transfer_penalty + duration_penalty + night_penalty
 
-    def _build_ticket_link(self, raw_link: str, query: SearchQuery, destination_code: str) -> str:
+    def _build_ticket_link(self, raw_link: str, query: SearchQuery, destination_code: str) -> tuple[str, str | None]:
+        """Build a ticket URL plus an optional sub_id for partner-link conversion.
+
+        Returns ``(url, sub_id)``:
+          * When ``self.trs`` is set, the URL is a clean Aviasales link and
+            ``sub_id`` is returned separately so the caller can later convert
+            the URL via the Travelpayouts Partner Links API.
+          * When ``self.trs`` is not set, the URL already carries
+            ``?marker=<id>&sub_id=<sub_id>`` (the safest manual format for
+            direct Aviasales URLs) and ``sub_id`` is ``None``.
+        """
         if not raw_link:
             raw_link = f"/search/{query.origin_code}{query.date_from:%d%m}{destination_code}1"
         if raw_link.startswith("/"):
             url = "https://www.aviasales.ru" + raw_link
         else:
             url = raw_link
-        if not self.marker:
-            return url
 
-        # Travelpayouts/Aviasales manual links expect partner tracking in `marker`.
-        # SubID is encoded as `<partner_id>.<sub_id>` for direct/White Label style URLs.
-        # The Partner Links API also accepts a separate `sub_id`, but here we build
-        # direct Aviasales URLs without calling that API.
         sub_id = sanitize_sub_id(
             f"tg_{query.mode.value}_{query.origin_code}_{destination_code}_{query.date_from:%Y%m%d}"
         )
-        return add_query_params(url, {"marker": build_marker(self.marker, sub_id)})
+
+        if not self.marker:
+            return url, None
+
+        if self.trs:
+            # Partner Links API will append marker/sub_id via the redirect gateway.
+            return url, sub_id
+
+        # Fallback: direct Aviasales URL with separate marker and sub_id params.
+        return add_query_params(url, {"marker": self.marker, "sub_id": sub_id}), None
 
     @staticmethod
     def _dedupe(offers: Iterable[FlightOffer]) -> list[FlightOffer]:
@@ -502,6 +534,97 @@ class TravelpayoutsClient:
             if current is None or offer.price < current.price:
                 best_by_key[key] = offer
         return list(best_by_key.values())
+
+    def _create_partner_links(self, pairs: list[tuple[str, str | None]]) -> dict[str, str]:
+        """Convert raw brand URLs into real partner links via Travelpayouts API.
+
+        ``pairs`` is a list of ``(raw_url, sub_id)`` tuples. Returns a mapping
+        ``{raw_url: partner_url}`` for successfully converted links. On any
+        error (network, auth, invalid response) returns an empty dict so the
+        caller can fall back to manual marker/sub_id links.
+        """
+        if not self.trs or not self.marker or not pairs:
+            return {}
+
+        marker_str = self.marker.strip()
+        try:
+            marker_int = int(marker_str)
+        except ValueError:
+            logger.warning("Partner Links API requires numeric marker, got %r", self.marker)
+            return {}
+
+        result: dict[str, str] = {}
+        for start in range(0, len(pairs), self.LINKS_BATCH_SIZE):
+            batch = pairs[start : start + self.LINKS_BATCH_SIZE]
+            payload = {
+                "trs": self.trs,
+                "marker": marker_int,
+                "shorten": True,
+                "links": [
+                    {"url": url, **({"sub_id": sub_id} if sub_id else {})}
+                    for url, sub_id in batch
+                ],
+            }
+            try:
+                response = self.session.post(
+                    self.LINKS_API_URL,
+                    json=payload,
+                    headers={"X-Access-Token": self.token},
+                    timeout=self.timeout_seconds,
+                )
+                response.raise_for_status()
+                payload_json = response.json()
+            except Exception as exc:
+                logger.warning("Partner Links API request failed: %s", exc)
+                return result
+
+            links = (payload_json.get("result") or {}).get("links") or []
+            for entry in links:
+                if entry.get("code") != "success":
+                    continue
+                partner_url = entry.get("partner_url") or ""
+                original_url = entry.get("url") or ""
+                if partner_url and original_url:
+                    result[original_url] = partner_url
+        return result
+
+    def _convert_links_to_partner(self, offers: list[FlightOffer]) -> None:
+        """Replace raw Aviasales URLs in ``offers`` with real partner links in place.
+
+        Offers built with ``self.trs`` set carry a clean URL plus a ``_sub_id``
+        stored in ``offer.raw``. This method batches those URLs through the
+        Partner Links API and rewrites ``offer.link`` to the returned
+        ``partner_url``. Offers whose URL could not be converted fall back to a
+        direct Aviasales URL with ``?marker=<id>&sub_id=<sub_id>``.
+        """
+        candidate_pairs: list[tuple[str, str | None]] = []
+        candidate_offers: list[FlightOffer] = []
+        for offer in offers:
+            sub_id = offer.raw.get("_sub_id") if isinstance(offer.raw, dict) else None
+            if not sub_id:
+                continue
+            candidate_pairs.append((offer.link, sub_id))
+            candidate_offers.append(offer)
+
+        if not candidate_pairs:
+            return
+
+        partner_map = self._create_partner_links(candidate_pairs)
+        converted = 0
+        for offer, (url, sub_id) in zip(candidate_offers, candidate_pairs):
+            partner_url = partner_map.get(url)
+            if partner_url:
+                offer.link = partner_url
+                converted += 1
+            else:
+                offer.link = add_query_params(url, {"marker": self.marker, "sub_id": sub_id})
+        logger.info(
+            "Partner Links API: converted %d/%d offers (marker=%s trs=%s)",
+            converted,
+            len(candidate_offers),
+            self.marker,
+            self.trs,
+        )
 
 
 def replace_destination(point: CityPoint):

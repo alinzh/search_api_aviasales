@@ -23,6 +23,7 @@ class Search:
         self.client = TravelpayoutsClient(
             token=token or settings.aviasales_token,
             marker=marker or settings.travelpayouts_marker,
+            trs=settings.travelpayouts_trs,
             timeout_seconds=settings.request_timeout_seconds,
         )
         self.settings = settings

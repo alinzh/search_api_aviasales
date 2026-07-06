@@ -26,6 +26,7 @@ class Settings:
     telegram_bot_token: str
     aviasales_token: str
     travelpayouts_marker: str | None
+    travelpayouts_trs: int | None
     admin_telegram_ids: set[int]
     currency: str = "rub"
     market: str = "ru"
@@ -34,10 +35,12 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        trs_raw = os.environ.get("TRAVELPAYOUTS_TRS") or None
         return cls(
             telegram_bot_token=os.environ.get("TELEGRAM_BOT_TOKEN", ""),
             aviasales_token=os.environ.get("AVIASALES_TOKEN", ""),
             travelpayouts_marker=os.environ.get("TRAVELPAYOUTS_MARKER") or None,
+            travelpayouts_trs=int(trs_raw) if trs_raw and trs_raw.isdigit() else None,
             admin_telegram_ids=_csv_ints(os.environ.get("ADMIN_TELEGRAM_IDS")),
             currency=os.environ.get("BOT_CURRENCY", "rub"),
             market=os.environ.get("BOT_MARKET", "ru"),

@@ -66,6 +66,7 @@ def main() -> None:
     client = TravelpayoutsClient(
         token=settings.aviasales_token,
         marker=settings.travelpayouts_marker,
+        trs=settings.travelpayouts_trs,
         timeout_seconds=settings.request_timeout_seconds,
     )
     storage = Storage(Path(__file__).resolve().parent.parent / "flight_finder.sqlite3")
